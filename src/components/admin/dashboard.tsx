@@ -743,6 +743,34 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
     }
   }, []);
 
+  /** Finger lifted / pointer left: stop the pending press only. Must NOT close an already-open menu. */
+  const endPress = useCallback(() => {
+    setPressingId(null);
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+  const menuOpenedAt = useRef(0);
+
+  // Compact tip: can be dismissed (remembered in this browser)
+  const [showTip, setShowTip] = useState(true);
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem("mm-hide-row-tip") === "1") setShowTip(false);
+    } catch {
+      // storage unavailable — keep the tip visible
+    }
+  }, []);
+  const dismissTip = () => {
+    setShowTip(false);
+    try {
+      window.localStorage.setItem("mm-hide-row-tip", "1");
+    } catch {
+      // ignore
+    }
+  };
+
   /** Open the popup ribbon near the pointer, clamped to the viewport. */
   const openMenuAt = (p: ParticipantRow, x: number, y: number) => {
     if (typeof window === "undefined") return;
@@ -752,6 +780,7 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
       x: Math.min(Math.max(8, x - W / 2), Math.max(8, window.innerWidth - W - 8)),
       y: Math.min(Math.max(8, y + 6), Math.max(8, window.innerHeight - H - 8)),
     });
+    menuOpenedAt.current = Date.now();
     setMenuRow(p);
   };
 
@@ -792,8 +821,14 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeMenu();
     };
-    const onScroll = () => closeMenu();
-    const onResize = () => closeMenu();
+    const onScroll = () => {
+      if (Date.now() - menuOpenedAt.current < 800) return;
+      closeMenu();
+    };
+    const onResize = () => {
+      if (Date.now() - menuOpenedAt.current < 800) return;
+      closeMenu();
+    };
     document.addEventListener("pointerdown", onDocPointerDown, true);
     document.addEventListener("keydown", onKey);
     window.addEventListener("scroll", onScroll, true);
@@ -1097,16 +1132,24 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
         </Alert>
       )}
 
-      {/* Press-&-hold tip — para malaman ng admin ang bagong row actions */}
-      <Alert className="border-xmas-gold/50 bg-xmas-gold/10 text-[#7a6414]">
-        <Info className="h-4 w-4" aria-hidden />
-        <AlertDescription className="text-[#7a6414]/90">
-          <span className="font-semibold">Tip:</span> Pindutin nang matagal (press &amp; hold) ang
-          row ng participant — lalabas ang popup na may <strong>“Edit details”</strong> at
-          <strong> “Delete Participant”</strong>. Sa computer, puwede rin ang ⋯ button sa Actions
-          column.
-        </AlertDescription>
-      </Alert>
+      {/* Press-&-hold tip — compact, dismissible */}
+      {showTip && (
+        <div className="flex items-start gap-2 rounded-md border border-xmas-gold/40 bg-xmas-gold/10 px-3 py-1.5 text-xs text-[#7a6414]">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <p className="flex-1 leading-snug">
+            <span className="font-semibold">Tip:</span> Pindutin nang matagal ang row para sa{" "}
+            <strong>Edit</strong> / <strong>Delete</strong> (sa computer: ⋯ button).
+          </p>
+          <button
+            type="button"
+            onClick={dismissTip}
+            className="-m-1 shrink-0 rounded p-1 hover:bg-xmas-gold/20"
+            aria-label="Itago ang tip"
+          >
+            <X className="h-3.5 w-3.5" aria-hidden />
+          </button>
+        </div>
+      )}
 
       {/* Table */}
       {loading && participants.length === 0 ? (
@@ -1154,9 +1197,9 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                       )}
                       onPointerDown={startPress(p)}
                       onPointerMove={onPressMove}
-                      onPointerUp={closeMenu}
-                      onPointerLeave={closeMenu}
-                      onPointerCancel={closeMenu}
+                      onPointerUp={endPress}
+                      onPointerLeave={endPress}
+                      onPointerCancel={endPress}
                       onContextMenu={(e) => e.preventDefault()}
                     >
                       <TableCell className="font-medium">{p.firstName}</TableCell>

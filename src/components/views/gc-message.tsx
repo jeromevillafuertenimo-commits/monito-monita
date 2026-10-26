@@ -394,14 +394,14 @@ export default function GcMessageView({ ctx }: { ctx: AppCtx }) {
       </ChristmasCard>
 
       {/* Message cards */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
         {messages.map((m) => {
           const isRecommended = m.id === recommendedId;
           const copied = copiedId === m.id;
           return (
             <ChristmasCard
               key={m.id}
-              className={cn("flex flex-col p-4 sm:p-6", isRecommended && "ring-2 ring-xmas-gold/50")}
+              className={cn("flex min-w-0 flex-col p-4 sm:p-6", isRecommended && "ring-2 ring-xmas-gold/50")}
             >
               <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-xmas-forest/10 text-xmas-forest">
@@ -417,12 +417,12 @@ export default function GcMessageView({ ctx }: { ctx: AppCtx }) {
               </div>
               <p className="mb-3 text-xs text-muted-foreground sm:text-sm">{m.when}</p>
               <pre
-                className="nice-scroll max-h-72 select-text whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 text-sm leading-relaxed text-foreground"
+                className="nice-scroll max-h-80 min-w-0 select-text overflow-y-auto overflow-x-hidden whitespace-pre-wrap rounded-lg border border-border bg-background p-3 font-sans text-[13px] leading-relaxed text-foreground [overflow-wrap:anywhere] sm:p-4 sm:text-sm"
                 aria-label={`Mensahe para sa GC: ${m.title}`}
               >
                 {m.text}
               </pre>
-              <div className="mt-3 flex justify-end">
+              <div className="mt-3 flex shrink-0 justify-end">
                 <Button
                   type="button"
                   className={cn(
