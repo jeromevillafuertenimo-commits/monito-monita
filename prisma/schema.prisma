@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// PUBLIC pseudonym + private identity of a participant.
+// Real names are NEVER exposed through public APIs.
+model Participant {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  nameKey      String   @unique // lowercase "first last" for duplicate-registration check
+  sex          String // "male" | "female"
+  codeColor    String
+  codeWord     String
+  identityCode String // display form, e.g. "Green Rose"
+  codeKey      String   @unique // lowercase identity code for uniqueness enforcement
+  pinHash      String?  @unique // HMAC-SHA256 of the participant's 6-digit PIN (used for sign-in verification)
+  pin          String? // plain 6-digit PIN — visible ONLY to the signed-in admin (support: look up / re-share forgotten PINs)
+  sessionTokenHash String? @unique // SHA-256 of the ephemeral session token issued on sign-in
+  isSample     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wishlist            Wishlist?
+  assignmentsGiven    Assignment[] @relation("Giver")
+  assignmentsReceived Assignment[] @relation("Recipient")
+}
+
+model Wishlist {
+  id            String      @id @default(cuid())
+  participantId String      @unique
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  wish1Name     String?
+  wish1Details  String?
+  wish2Name     String?
+  wish2Details  String?
+  wish3Name     String?
+  wish3Details  String?
+  submittedAt   DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Assignment {
+  id          String      @id @default(cuid())
+  batchId     String
+  giverId     String
+  giver       Participant @relation("Giver", fields: [giverId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   Participant @relation("Recipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+
+  @@unique([batchId, giverId])
+  @@unique([batchId, recipientId])
+}
+
+model EventSettings {
+  id                  String    @id @default("main")
+  eventName           String    @default("Christmas Fellowship Monito-Monita 2026")
+  budgetMin           Int       @default(150)
+  budgetMax           Int       @default(200)
+  registrationOpen    Boolean   @default(true)
+  submissionsLocked   Boolean   @default(false)
+  lockedAt            DateTime?
+  lockedBy            String?
+  randomizationStatus String    @default("not_started") // not_started | completed | released
+  releasedAt          DateTime?
+  releasedBy          String?
+  updatedAt           DateTime  @updatedAt
+}
+
+model AdminAccount {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  passwordHash String // scrypt: salt:hash hex — NEVER plain text
+  role         String   @default("admin")
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actor     String   @default("system") // admin username or participant identity code
+  action    String
+  details   String?
+  recordId  String?
+  createdAt DateTime @default(now())
+}

@@ -1,0 +1,271 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-heading);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* Christmas palette */
+  --color-xmas-forest: var(--xmas-forest);
+  --color-xmas-pine: var(--xmas-pine);
+  --color-xmas-gold: var(--xmas-gold);
+  --color-xmas-goldlight: var(--xmas-goldlight);
+  --color-xmas-burgundy: var(--xmas-burgundy);
+  --color-xmas-red: var(--xmas-red);
+  --color-xmas-cream: var(--xmas-cream);
+  --color-xmas-creamdark: var(--xmas-creamdark);
+}
+
+:root {
+  --radius: 0.75rem;
+
+  /* Christmas palette */
+  --xmas-forest: #1b4332;
+  --xmas-pine: #2d6a4f;
+  --xmas-gold: #c9a227;
+  --xmas-goldlight: #e9c46a;
+  --xmas-burgundy: #7a1e2b;
+  --xmas-red: #b23a48;
+  --xmas-cream: #fdf8ec;
+  --xmas-creamdark: #f5ecd7;
+
+  --background: #fdf8ec;
+  --foreground: #25331f;
+  --card: #fffdf6;
+  --card-foreground: #25331f;
+  --popover: #fffdf6;
+  --popover-foreground: #25331f;
+  --primary: #1b4332;
+  --primary-foreground: #fdf8ec;
+  --secondary: #f3e8cf;
+  --secondary-foreground: #1b4332;
+  --muted: #f5efdd;
+  --muted-foreground: #6b705c;
+  --accent: #eaf1e4;
+  --accent-foreground: #1b4332;
+  --destructive: #a02c3c;
+  --border: #e6dcc3;
+  --input: #e0d5b8;
+  --ring: #c9a227;
+  --chart-1: #2d6a4f;
+  --chart-2: #c9a227;
+  --chart-3: #b23a48;
+  --chart-4: #7a1e2b;
+  --chart-5: #74a892;
+  --sidebar: #fffdf6;
+  --sidebar-foreground: #25331f;
+  --sidebar-primary: #1b4332;
+  --sidebar-primary-foreground: #fdf8ec;
+  --sidebar-accent: #eaf1e4;
+  --sidebar-accent-foreground: #1b4332;
+  --sidebar-border: #e6dcc3;
+  --sidebar-ring: #c9a227;
+}
+
+.dark {
+  --background: #14231b;
+  --foreground: #fdf8ec;
+  --card: #1b2f24;
+  --card-foreground: #fdf8ec;
+  --popover: #1b2f24;
+  --popover-foreground: #fdf8ec;
+  --primary: #e9c46a;
+  --primary-foreground: #14231b;
+  --secondary: #24402f;
+  --secondary-foreground: #fdf8ec;
+  --muted: #223829;
+  --muted-foreground: #a8b5a0;
+  --accent: #24402f;
+  --accent-foreground: #fdf8ec;
+  --destructive: #d95d6d;
+  --border: #2c4535;
+  --input: #2c4535;
+  --ring: #e9c46a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------- Christmas decorations ---------- */
+
+.font-heading {
+  font-family: var(--font-heading), Georgia, serif;
+}
+
+@keyframes snow-fall {
+  0% {
+    transform: translateY(-5vh) translateX(0) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: var(--flake-opacity, 0.7);
+  }
+  100% {
+    transform: translateY(105vh) translateX(var(--flake-drift, 20px)) rotate(240deg);
+    opacity: 0;
+  }
+}
+
+.snowflake {
+  position: absolute;
+  top: -5vh;
+  color: #9fb8c4;
+  animation: snow-fall linear infinite;
+  user-select: none;
+  pointer-events: none;
+}
+
+@keyframes bulb-twinkle {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+  50% {
+    opacity: 0.45;
+    filter: brightness(0.8);
+  }
+}
+
+.bulb {
+  animation: bulb-twinkle 2.4s ease-in-out infinite;
+}
+
+@keyframes gentle-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.animate-gentle-float {
+  animation: gentle-float 3.5s ease-in-out infinite;
+}
+
+@keyframes sparkle-pop {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.25) rotate(40deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6) rotate(90deg);
+    opacity: 0;
+  }
+}
+
+.sparkle {
+  animation: sparkle-pop 0.9s ease-out forwards;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.gold-shimmer {
+  background: linear-gradient(
+    100deg,
+    #c9a227 0%,
+    #f2d98c 25%,
+    #c9a227 50%,
+    #f2d98c 75%,
+    #c9a227 100%
+  );
+  background-size: 200% auto;
+  animation: shimmer 4s linear infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Custom scrollbar for long lists */
+.nice-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.nice-scroll::-webkit-scrollbar-track {
+  background: #f5efdd;
+  border-radius: 8px;
+}
+.nice-scroll::-webkit-scrollbar-thumb {
+  background: #c9b98a;
+  border-radius: 8px;
+}
+.nice-scroll::-webkit-scrollbar-thumb:hover {
+  background: #c9a227;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowflake,
+  .bulb,
+  .animate-gentle-float,
+  .gold-shimmer {
+    animation: none !important;
+  }
+}
