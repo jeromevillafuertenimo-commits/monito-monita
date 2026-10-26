@@ -18,14 +18,8 @@ import {
   InputOTPGroup,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { SectionTitle, ChristmasCard } from "@/components/decor";
+import { Combobox } from "@/components/combobox";
 
 type Sex = "" | "male" | "female";
 
@@ -227,49 +221,38 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                   <Label htmlFor="select-color" className="text-xs text-muted-foreground">
                     Color
                   </Label>
-                  <Select value={color || undefined} onValueChange={(v: string) => setColor(v)}>
-                    <SelectTrigger
-                      id="select-color"
-                      className="w-full min-h-11 rounded-lg"
-                      aria-invalid={!!errors.color}
-                    >
-                      <SelectValue placeholder="Pumili ng color" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {COLORS.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Combobox
+                    id="select-color"
+                    options={COLORS}
+                    value={color}
+                    onChange={(v) => {
+                      setColor(v);
+                      setErrors((prev) => ({ ...prev, color: undefined }));
+                    }}
+                    placeholder="Pumili ng color"
+                    searchPlaceholder="I-type ang color… (e.g. ameth)"
+                    emptyText="Walang color na tugma — subukan ang ibang spelling."
+                    invalid={!!errors.color}
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="select-word" className="text-xs text-muted-foreground">
                     {wordLabel}
                   </Label>
-                  {/* key={sex} remounts the Select so the word resets cleanly when sex changes */}
-                  <Select
-                    key={sex}
-                    value={word || undefined}
-                    onValueChange={(v: string) => setWord(v)}
+                  <Combobox
+                    id="select-word"
+                    options={wordOptions}
+                    value={word}
+                    onChange={(v) => {
+                      setWord(v);
+                      setErrors((prev) => ({ ...prev, word: undefined }));
+                    }}
+                    placeholder={wordPlaceholder}
+                    searchPlaceholder={`I-type ang ${sex === "female" ? "flower" : "animal"}… (e.g. gum)`}
+                    emptyText="Walang tugma. Subukan ang ibang pangalan."
                     disabled={!sex}
-                  >
-                    <SelectTrigger
-                      id="select-word"
-                      className="w-full min-h-11 rounded-lg"
-                      aria-invalid={!!errors.word}
-                    >
-                      <SelectValue placeholder={wordPlaceholder} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {wordOptions.map((w) => (
-                        <SelectItem key={w} value={w}>
-                          {w}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    invalid={!!errors.word}
+                  />
                 </div>
               </div>
 
@@ -292,8 +275,9 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                 )}
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Pumili ng combination na unique — kung may kumuha na, magsusubmit kami ng error at
-                pumili ka ng iba.
+                May <span className="font-semibold text-xmas-forest">search box</span> sa bawat
+                dropdown — i-type lang (e.g. "gum" para sa Gumamela). Pumili ng combination na
+                unique — kung may kumuha na, magsusubmit kami ng error at pumili ka ng iba.
               </p>
               {(errors.color || errors.word) && (
                 <div className="space-y-1">

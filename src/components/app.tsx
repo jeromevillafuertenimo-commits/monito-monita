@@ -25,7 +25,6 @@ import SubmittedView from "@/components/views/submitted";
 import CheckView from "@/components/views/check";
 import MyAssignmentView from "@/components/views/my-assignment";
 import StatusView from "@/components/views/status";
-import GcMessageView from "@/components/views/gc-message";
 import AdminLoginView from "@/components/admin/login";
 import AdminDashboardView from "@/components/admin/dashboard";
 
@@ -146,8 +145,6 @@ export default function App() {
         return <MyAssignmentView ctx={ctx} />;
       case "status":
         return <StatusView ctx={ctx} />;
-      case "gc-message":
-        return <GcMessageView ctx={ctx} />;
       case "admin-login":
         return <AdminLoginView ctx={ctx} />;
       case "admin":

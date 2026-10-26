@@ -4,7 +4,7 @@
 // Contract: single default export AdminDashboardView({ ctx }: { ctx: AppCtx }).
 // All tab content lives in non-exported component functions in this file.
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { REGEXP_ONLY_DIGITS } from "input-otp";
 import {
   BadgeCheck,
@@ -13,15 +13,19 @@ import {
   ClipboardList,
   Clock,
   Database,
+  DatabaseBackup,
   Download,
   Eye,
   FileDown,
+  FileUp,
   History,
   Info,
   KeyRound,
   Loader2,
   Lock,
   LogOut,
+  MoreVertical,
+  Pencil,
   Plus,
   RefreshCw,
   Rocket,
@@ -42,11 +46,13 @@ import {
 } from "lucide-react";
 import { AppCtx, WishlistDTO } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
+import type { RestoreBackup } from "@/lib/backup";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChristmasCard, SectionTitle } from "@/components/decor";
+import { COLORS, wordsForSex } from "@/lib/words";
+import { Combobox } from "@/components/combobox";
 import GcMessageView from "@/components/views/gc-message";
-import { COLORS, FLOWERS, ANIMALS } from "@/lib/words";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -129,6 +135,8 @@ interface ParticipantRow {
   lastName: string;
   sex: "male" | "female";
   identityCode: string;
+  codeColor: string; // prefill para sa Edit details dialog
+  codeWord: string;
   pin: string | null; // admin-only: plain 6-digit PIN for support
   isSample: boolean;
   createdAt: string;
@@ -704,6 +712,173 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
   ]);
   const [wishBusy, setWishBusy] = useState(false);
 
+  // --- Row popup menu (press-&-hold or the ⋯ button) → Edit details / Delete ---
+  const [menuRow, setMenuRow] = useState<ParticipantRow | null>(null);
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 });
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pressStart = useRef({ x: 0, y: 0 });
+  const [pressingId, setPressingId] = useState<string | null>(null);
+
+  // --- Edit details dialog ---
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<ParticipantRow | null>(null);
+  const [editFirst, setEditFirst] = useState("");
+  const [editLast, setEditLast] = useState("");
+  const [editSex, setEditSex] = useState("");
+  const [editColor, setEditColor] = useState("");
+  const [editWord, setEditWord] = useState("");
+  const [editPin, setEditPin] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+
+  // --- Delete participant confirm ("Are you sure?" Cancel/Yes) ---
+  const [deleteTarget, setDeleteTarget] = useState<ParticipantRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  const closeMenu = useCallback(() => {
+    setMenuRow(null);
+    setPressingId(null);
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  }, []);
+
+  /** Open the popup ribbon near the pointer, clamped to the viewport. */
+  const openMenuAt = (p: ParticipantRow, x: number, y: number) => {
+    if (typeof window === "undefined") return;
+    const W = 280;
+    const H = 210;
+    setMenuPos({
+      x: Math.min(Math.max(8, x - W / 2), Math.max(8, window.innerWidth - W - 8)),
+      y: Math.min(Math.max(8, y + 6), Math.max(8, window.innerHeight - H - 8)),
+    });
+    setMenuRow(p);
+  };
+
+  const startPress = (p: ParticipantRow) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return; // left click / touch / pen only
+    pressStart.current = { x: e.clientX, y: e.clientY };
+    setPressingId(String(p.id));
+    if (pressTimer.current) clearTimeout(pressTimer.current);
+    pressTimer.current = setTimeout(() => {
+      pressTimer.current = null;
+      setPressingId(null);
+      openMenuAt(p, pressStart.current.x, pressStart.current.y);
+    }, 500);
+  };
+
+  /** Moving >10px means the user is scrolling/dragging, not press-&-holding. */
+  const onPressMove = (e: React.PointerEvent) => {
+    if (!pressTimer.current) return;
+    const dx = e.clientX - pressStart.current.x;
+    const dy = e.clientY - pressStart.current.y;
+    if (Math.hypot(dx, dy) > 10) {
+      if (pressTimer.current) {
+        clearTimeout(pressTimer.current);
+        pressTimer.current = null;
+      }
+      setPressingId(null);
+    }
+  };
+
+  // Close the ribbon on outside pointerdown, Escape, scroll, or resize.
+  useEffect(() => {
+    if (!menuRow) return;
+    const onDocPointerDown = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && t.closest("[data-row-menu]")) return;
+      closeMenu();
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeMenu();
+    };
+    const onScroll = () => closeMenu();
+    const onResize = () => closeMenu();
+    document.addEventListener("pointerdown", onDocPointerDown, true);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onResize);
+    return () => {
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onResize);
+    };
+  }, [menuRow, closeMenu]);
+
+  const openEdit = (p: ParticipantRow) => {
+    setEditFirst(p.firstName);
+    setEditLast(p.lastName);
+    setEditSex(p.sex);
+    setEditColor(p.codeColor);
+    setEditWord(p.codeWord);
+    setEditPin(p.pin ?? "");
+    setEditTarget(p);
+    setEditOpen(true);
+  };
+
+  const submitEdit = async () => {
+    if (!editTarget || editBusy) return;
+    if (!editFirst.trim() || !editLast.trim()) {
+      toast.error("Pakilagay ang First name at Last name.");
+      return;
+    }
+    if (!editSex) {
+      toast.error("Piliin ang sex: Babae (Female) o Lalaki (Male).");
+      return;
+    }
+    if (!editColor || !editWord) {
+      toast.error("Pumili ng color at flower/animal para sa identity code.");
+      return;
+    }
+    if (!/^\d{6}$/.test(editPin)) {
+      toast.error("Pakicomplete ang 6-digit PIN (numbers lang, eksaktong 6 digits).");
+      return;
+    }
+    setEditBusy(true);
+    try {
+      const res = await apiJson<{ identityCode: string; pin: string }>(
+        `/api/admin/participants/${editTarget.id}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            firstName: editFirst.trim(),
+            lastName: editLast.trim(),
+            sex: editSex,
+            color: editColor,
+            word: editWord,
+            pin: editPin,
+          }),
+        }
+      );
+      toast.success(`Na-update na ang details ni ${editTarget.firstName} ${editTarget.lastName} (${res.identityCode})! ✅`);
+      setEditOpen(false);
+      setEditTarget(null);
+      void onMutate();
+    } catch (err) {
+      toast.error(errMsg(err));
+    } finally {
+      setEditBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      await apiJson(`/api/admin/participants/${deleteTarget.id}`, { method: "DELETE" });
+      toast.success(
+        `Nabura na si ${deleteTarget.firstName} ${deleteTarget.lastName} (${deleteTarget.identityCode}) kasama ang wishlist at assignments niya.`
+      );
+      setDeleteTarget(null);
+      void onMutate();
+    } catch (err) {
+      toast.error(errMsg(err));
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
   const participants = data?.participants ?? [];
   const filtered = participants.filter((p) => {
     const q = search.trim().toLowerCase();
@@ -922,6 +1097,17 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
         </Alert>
       )}
 
+      {/* Press-&-hold tip — para malaman ng admin ang bagong row actions */}
+      <Alert className="border-xmas-gold/50 bg-xmas-gold/10 text-[#7a6414]">
+        <Info className="h-4 w-4" aria-hidden />
+        <AlertDescription className="text-[#7a6414]/90">
+          <span className="font-semibold">Tip:</span> Pindutin nang matagal (press &amp; hold) ang
+          row ng participant — lalabas ang popup na may <strong>“Edit details”</strong> at
+          <strong> “Delete Participant”</strong>. Sa computer, puwede rin ang ⋯ button sa Actions
+          column.
+        </AlertDescription>
+      </Alert>
+
       {/* Table */}
       {loading && participants.length === 0 ? (
         <TableSkeleton rows={6} />
@@ -960,7 +1146,19 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                   </TableRow>
                 ) : (
                   filtered.map((p) => (
-                    <TableRow key={p.id}>
+                    <TableRow
+                      key={p.id}
+                      className={cn(
+                        "cursor-default select-none [-webkit-touch-callout:none]",
+                        pressingId === String(p.id) && "bg-xmas-gold/10"
+                      )}
+                      onPointerDown={startPress(p)}
+                      onPointerMove={onPressMove}
+                      onPointerUp={closeMenu}
+                      onPointerLeave={closeMenu}
+                      onPointerCancel={closeMenu}
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
                       <TableCell className="font-medium">{p.firstName}</TableCell>
                       <TableCell>{p.lastName}</TableCell>
                       <TableCell>{p.sex === "female" ? "Babae" : "Lalaki"}</TableCell>
@@ -999,6 +1197,19 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 px-2.5"
+                            aria-label={`Iba pang aksyon para kay ${p.identityCode} — Edit details at Delete Participant`}
+                            title="Edit details / Delete Participant"
+                            onClick={(e) => {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              openMenuAt(p, r.left + r.width / 2, r.bottom);
+                            }}
+                          >
+                            <MoreVertical className="h-4 w-4" aria-hidden />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
@@ -1236,47 +1447,33 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="add-color">Color</Label>
-                <Select
+                <Combobox
+                  id="add-color"
+                  options={COLORS}
                   value={addColor}
-                  onValueChange={(v) => setAddColor(v)}
+                  onChange={(v) => setAddColor(v)}
+                  placeholder="Pumili ng color…"
+                  searchPlaceholder="I-type ang color… (e.g. ameth)"
+                  emptyText="Walang color na tugma — subukan ang ibang spelling."
+                  label="Color ng identity code"
                   disabled={addBusy}
-                >
-                  <SelectTrigger id="add-color" className="w-full" aria-label="Color ng identity code">
-                    <SelectValue placeholder="Pumili ng color…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {COLORS.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="add-word">{addSex === "female" ? "Flower" : "Animal"}</Label>
-                <Select
+                <Combobox
+                  id="add-word"
+                  options={addSex ? wordsForSex(addSex) : []}
                   value={addWord}
-                  onValueChange={(v) => setAddWord(v)}
+                  onChange={(v) => setAddWord(v)}
+                  placeholder={
+                    addSex ? `Pumili ng ${addSex === "female" ? "flower" : "animal"}…` : "Pumili muna ng sex…"
+                  }
+                  searchPlaceholder={`I-type ang ${addSex === "female" ? "flower" : "animal"}… (e.g. gum)`}
+                  emptyText="Walang tugma — subukan ang ibang spelling."
+                  label="Flower o animal ng identity code"
                   disabled={addBusy || !addSex}
-                >
-                  <SelectTrigger
-                    id="add-word"
-                    className="w-full"
-                    aria-label="Flower o animal ng identity code"
-                  >
-                    <SelectValue
-                      placeholder={addSex ? `Pumili ng ${addSex === "female" ? "flower" : "animal"}…` : "Pumili muna ng sex…"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {(addSex === "female" ? FLOWERS : ANIMALS).map((w) => (
-                      <SelectItem key={w} value={w}>
-                        {w}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
               </div>
             </div>
 
@@ -1391,6 +1588,274 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Press-&-hold popup ribbon: Edit details / Delete Participant */}
+      {menuRow && (
+        <div
+          data-row-menu
+          role="menu"
+          aria-label={`Mga aksyon para kay ${menuRow.identityCode}`}
+          className="fixed z-[60] w-[280px] rounded-xl border border-xmas-forest/20 bg-card p-3 shadow-xl"
+          style={{ left: menuPos.x, top: menuPos.y }}
+        >
+          <div className="mb-2 border-b border-border pb-2">
+            <p className="text-sm font-semibold text-xmas-forest">
+              {menuRow.firstName} {menuRow.lastName}
+            </p>
+            <p className="font-mono text-xs font-bold text-xmas-forest/80">
+              {menuRow.identityCode}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Button
+              className="min-h-11 w-full justify-start gap-2 rounded-lg border-xmas-forest/30 bg-xmas-forest/5 text-xmas-forest hover:bg-xmas-forest/10"
+              onClick={() => {
+                openEdit(menuRow);
+                closeMenu();
+              }}
+              disabled={bunutanDone}
+            >
+              <Pencil className="h-4 w-4" aria-hidden />
+              Edit details
+            </Button>
+            {bunutanDone && (
+              <p className="px-1 text-[11px] leading-snug text-muted-foreground">
+                Tapos na ang bunutan — hindi na puwedeng i-edit, pero puwede pa ang Delete.
+              </p>
+            )}
+            <Button
+              className="min-h-11 w-full justify-start gap-2 rounded-lg border border-xmas-burgundy/30 bg-xmas-burgundy/5 text-xmas-burgundy hover:bg-xmas-burgundy/10"
+              onClick={() => {
+                setDeleteTarget(menuRow);
+                closeMenu();
+              }}
+            >
+              <Trash2 className="h-4 w-4" aria-hidden />
+              Delete Participant
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Edit details dialog — prefill mula sa row; bawal na post-bunutan */}
+      <Dialog
+        open={editOpen}
+        onOpenChange={(o) => {
+          if (!o && !editBusy) {
+            setEditOpen(false);
+            setEditTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-xmas-forest" aria-hidden />
+              Edit details ni {editTarget?.identityCode}
+            </DialogTitle>
+            <DialogDescription>
+              Ayusin ang pangalan, sex, identity code, o PIN. Iwanan ang PIN kung hindi dapat
+              magbago — kapag nagbago, ibigay mo ang bagong PIN sa kanya personally at ang dating
+              PIN ay hindi na gagana.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-first">First Name</Label>
+                <Input
+                  id="edit-first"
+                  value={editFirst}
+                  onChange={(e) => setEditFirst(e.target.value)}
+                  placeholder="e.g. Juan"
+                  maxLength={40}
+                  autoComplete="off"
+                  autoCapitalize="words"
+                  disabled={editBusy}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-last">Last Name</Label>
+                <Input
+                  id="edit-last"
+                  value={editLast}
+                  onChange={(e) => setEditLast(e.target.value)}
+                  placeholder="e.g. Dela Cruz"
+                  maxLength={40}
+                  autoComplete="off"
+                  autoCapitalize="words"
+                  disabled={editBusy}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-sex">Sex</Label>
+              <Select
+                value={editSex}
+                onValueChange={(v) => {
+                  setEditSex(v);
+                  setEditWord(""); // iba ang flower/animal list kada sex
+                }}
+                disabled={editBusy}
+              >
+                <SelectTrigger id="edit-sex" className="w-full" aria-label="Sex ng participant">
+                  <SelectValue placeholder="Piliin ang sex…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="female">Babae (Female)</SelectItem>
+                  <SelectItem value="male">Lalaki (Male)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-color">Color</Label>
+                <Combobox
+                  id="edit-color"
+                  options={COLORS}
+                  value={editColor}
+                  onChange={(v) => setEditColor(v)}
+                  placeholder="Pumili ng color…"
+                  searchPlaceholder="I-type ang color… (e.g. ameth)"
+                  emptyText="Walang color na tugma — subukan ang ibang spelling."
+                  label="Color ng identity code"
+                  disabled={editBusy}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-word">{editSex === "female" ? "Flower" : "Animal"}</Label>
+                <Combobox
+                  id="edit-word"
+                  options={editSex ? wordsForSex(editSex) : []}
+                  value={editWord}
+                  onChange={(v) => setEditWord(v)}
+                  placeholder={
+                    editSex ? `Pumili ng ${editSex === "female" ? "flower" : "animal"}…` : "Pumili muna ng sex…"
+                  }
+                  searchPlaceholder={`I-type ang ${editSex === "female" ? "flower" : "animal"}… (e.g. gum)`}
+                  emptyText="Walang tugma — subukan ang ibang spelling."
+                  label="Flower o animal ng identity code"
+                  disabled={editBusy || !editSex}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>6-Digit PIN</Label>
+              <p className="text-xs text-muted-foreground">
+                Iwanan ito kung ayaw mong palitan ang PIN niya. Kapag nagbago, ibigay mo ang bagong
+                PIN sa kanya personally — ang dating PIN ay hindi na gagana.
+              </p>
+              <div className="flex justify-center py-1">
+                <InputOTP
+                  maxLength={6}
+                  pattern={REGEXP_ONLY_DIGITS}
+                  value={editPin}
+                  onChange={(v: string) => setEditPin(v)}
+                  inputMode="numeric"
+                  aria-label="6-digit PIN ng participant"
+                  disabled={editBusy}
+                >
+                  <InputOTPGroup>
+                    {Array.from({ length: 6 }, (_, i) => (
+                      <InputOTPSlot
+                        key={i}
+                        index={i}
+                        className="h-11 w-10 border-xmas-forest/40 text-lg sm:h-12 sm:w-11"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditOpen(false);
+                  setEditTarget(null);
+                }}
+                disabled={editBusy}
+                className="min-h-11 rounded-lg"
+              >
+                Kanselahin
+              </Button>
+              <Button
+                onClick={submitEdit}
+                disabled={
+                  editBusy ||
+                  !editFirst.trim() ||
+                  !editLast.trim() ||
+                  !editSex ||
+                  !editColor ||
+                  !editWord ||
+                  !/^\d{6}$/.test(editPin)
+                }
+                className="min-h-11 rounded-lg bg-xmas-forest font-semibold text-xmas-cream hover:bg-xmas-pine"
+              >
+                {editBusy ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Nagse-save…
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" aria-hidden /> I-save ang Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete participant — "Are you sure?" Cancel/Yes */}
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => {
+          if (!o && !deleteBusy) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Burahin si {deleteTarget?.firstName} {deleteTarget?.lastName} (
+              {deleteTarget?.identityCode})?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure? Mabubura permanently ang participant na ito KASAMA ang wishlist at ang
+              kanyang Monito/Monita assignments. Hindi ito maibabalik.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {bunutanDone && (
+            <Alert variant="destructive">
+              <TriangleAlert aria-hidden />
+              <AlertDescription>
+                Tapos na ang bunutan — ang mga naka-assign kay {deleteTarget?.identityCode} ay
+                mawawala din. Kung kailangan ng panibagong bunutan pagkatapos, i-reset mula sa
+                Settings &amp; Audit.
+              </AlertDescription>
+            </Alert>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={deleteBusy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -2072,6 +2537,13 @@ function SettingsTab({ version, onMutate }: TabProps) {
   const [wipeBusy, setWipeBusy] = useState(false);
   const [wipeOpen, setWipeOpen] = useState(false);
 
+  // --- Backup & Restore (safety net ng data) ---
+  const [restorePayload, setRestorePayload] = useState<RestoreBackup | null>(null);
+  const [restoreConfirmOpen, setRestoreConfirmOpen] = useState(false);
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
+  const restoreFileRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     const ev = overview.data?.event;
     if (!ev) return;
@@ -2127,6 +2599,119 @@ function SettingsTab({ version, onMutate }: TabProps) {
       toast.error(errMsg(err, "Hindi natuloy ang pag-bura. Pakisubok muli."));
     } finally {
       setWipeBusy(false);
+    }
+  };
+
+  /** Restore: i-parse ang JSON backup file, i-confirm, tapos i-POST sa server. */
+  const onRestoreFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text()) as RestoreBackup;
+      if (!Array.isArray(parsed.participants)) throw new Error("walang participants");
+      setRestorePayload(parsed);
+      setRestoreConfirmOpen(true);
+    } catch {
+      toast.error("Hindi valid na backup file — kailangan ng JSON mula sa \"I-download ang Backup\".");
+    }
+  };
+
+  const doRestore = async () => {
+    if (!restorePayload || restoreBusy) return;
+    setRestoreBusy(true);
+    try {
+      const res = await apiJson<{ restored: { participants: number; wishlists: number; assignments: number } }>(
+        "/api/admin/restore",
+        { method: "POST", body: JSON.stringify(restorePayload) }
+      );
+      setRestoreConfirmOpen(false);
+      setRestorePayload(null);
+      toast.success(
+        `Narestore ang ${res.restored.participants} participants, ${res.restored.wishlists} wishlists, ${res.restored.assignments} assignments mula sa backup! ✅`
+      );
+      await onMutate();
+    } catch (err) {
+      setRestoreConfirmOpen(false);
+      toast.error(errMsg(err, "Hindi natuloy ang restore. Pakicheck ang backup file at subukan muli."));
+    } finally {
+      setRestoreBusy(false);
+    }
+  };
+
+  /** Backup: buuin ang kumpletong JSON mula sa live na data at i-download bilang
+   *  file. Kasama ang plain PINs (admin-only data) para maisuli ang lahat kahit
+   *  magpalit ng device/server — ang restore endpoint ang muling mag-ha-hash. */
+  const downloadBackup = async () => {
+    if (backupBusy) return;
+    setBackupBusy(true);
+    try {
+      const parts = await apiJson<{ participants: ParticipantRow[] }>("/api/admin/participants");
+      const assignmentsData =
+        event.randomizationStatus !== "not_started"
+          ? await apiJson<AssignmentsData>("/api/admin/assignments").catch(() => null)
+          : null;
+      const backup: RestoreBackup = {
+        app: "monito-monita",
+        version: 1,
+        createdAt: new Date().toISOString(),
+        event: {
+          eventName: event.eventName,
+          budgetMin: event.budgetMin,
+          budgetMax: event.budgetMax,
+          registrationOpen: event.registrationOpen,
+          submissionsLocked: event.submissionsLocked,
+          lockedAt: event.lockedAt,
+          randomizationStatus: event.randomizationStatus,
+          releasedAt: event.releasedAt,
+        },
+        participants: parts.participants.map((p) => ({
+          firstName: p.firstName,
+          lastName: p.lastName,
+          sex: p.sex,
+          codeColor: p.codeColor,
+          codeWord: p.codeWord,
+          identityCode: p.identityCode,
+          pin: p.pin,
+          isSample: p.isSample,
+          createdAt: p.createdAt,
+          wishlist: p.wishlist
+            ? {
+                wish1Name: p.wishlist.wish1Name,
+                wish1Details: p.wishlist.wish1Details,
+                wish2Name: p.wishlist.wish2Name,
+                wish2Details: p.wishlist.wish2Details,
+                wish3Name: p.wishlist.wish3Name,
+                wish3Details: p.wishlist.wish3Details,
+                submittedAt: p.wishlist.submittedAt,
+              }
+            : null,
+        })),
+        assignments:
+          assignmentsData?.released && assignmentsData.assignments.length > 0
+            ? assignmentsData.assignments.map((a) => ({
+                giverCode: a.giver.code,
+                recipientCode: a.recipient.code,
+              }))
+            : null,
+      };
+      const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `monito-monita-backup-${stamp}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(
+        `Na-download na ang backup (${backup.participants.length} participants). I-save ito sa GC o sa files mo para may maibabalik ka!`
+      );
+    } catch (err) {
+      toast.error(errMsg(err, "Hindi na-download ang backup. Pakisubok muli."));
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -2561,7 +3146,88 @@ function SettingsTab({ version, onMutate }: TabProps) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 6. Audit Log */}
+      {/* 6. Backup & Restore — safety net ng data */}
+      <ChristmasCard className="p-4 sm:p-6">
+        <h3 className="flex items-center gap-2 font-heading text-lg font-bold text-xmas-forest">
+          <DatabaseBackup className="h-5 w-5 text-xmas-gold" aria-hidden />
+          Backup &amp; Restore
+        </h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          I-download ang kumpletong kopya ng data — participants, wishlists, assignments, at
+          event state — bilang JSON file. I-save ang file sa GC o sa files mo; ito ang safety
+          net para kahit anong mangyari, may maibabalik ka.
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <Button
+            onClick={downloadBackup}
+            disabled={backupBusy || restoreBusy}
+            className="bg-xmas-forest text-white hover:bg-xmas-forest/90"
+          >
+            {backupBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <DatabaseBackup className="h-4 w-4" aria-hidden />
+            )}
+            I-download ang Backup
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => restoreFileRef.current?.click()}
+            disabled={backupBusy || restoreBusy}
+          >
+            {restoreBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            ) : (
+              <FileUp className="h-4 w-4" aria-hidden />
+            )}
+            I-restore mula sa Backup
+          </Button>
+          <input
+            ref={restoreFileRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={onRestoreFilePicked}
+            aria-hidden
+            tabIndex={-1}
+          />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Paalala: ang restore ay papalit sa LAHAT ng kasalukuyang participants, wishlists, at
+          assignments ng laman ng backup file.
+        </p>
+      </ChristmasCard>
+
+      <AlertDialog
+        open={restoreConfirmOpen}
+        onOpenChange={(o) => !restoreBusy && setRestoreConfirmOpen(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>I-restore ang backup na ito?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Papalitan ng backup na ito — {restorePayload?.participants.length ?? 0} participants,
+              ginawa noong {fmt(restorePayload?.createdAt)} — ang LAHAT ng kasalukuyang
+              participants, wishlists, at assignments. Hindi na ito maibabalik.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restoreBusy}>Kanselahin</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                doRestore();
+              }}
+              disabled={restoreBusy}
+            >
+              {restoreBusy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+              Oo, i-restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 7. Audit Log */}
       <ChristmasCard className="p-4 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="flex items-center gap-2 font-heading text-lg font-bold text-xmas-forest">

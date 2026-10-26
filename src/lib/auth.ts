@@ -129,7 +129,7 @@ export async function ensureSeed(): Promise<void> {
   const count = await db.adminAccount.count();
   if (count === 0) {
     const username = process.env.ADMIN_USERNAME || "admin";
-    const password = process.env.ADMIN_PASSWORD || "fafbCF2026";
+    const password = process.env.ADMIN_PASSWORD || "monito2026";
     await db.adminAccount.create({
       data: { username, passwordHash: hashPassword(password) },
     });

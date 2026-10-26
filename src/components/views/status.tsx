@@ -138,7 +138,7 @@ export default function StatusView({ ctx }: { ctx: AppCtx }) {
               {rn === "released" && (
                 <div className="mt-2">
                   <p className="text-sm leading-relaxed text-muted-foreground">
-                    Para makita ang wishlist ng na-assign sa iyo, pindutin ang button sa ibaba!
+                    Punthan ang Check My Monito/Monita para makita ang wishlist ng na-assign sa iyo!
                     {event.releasedAt && (
                       <span className="mt-1 block font-medium text-xmas-pine">
                         Na-release noong {fmtDate(event.releasedAt)}.
@@ -149,7 +149,7 @@ export default function StatusView({ ctx }: { ctx: AppCtx }) {
                     onClick={() => navigate("check")}
                     className="mt-3 min-h-11 rounded-lg bg-xmas-forest font-semibold text-xmas-cream hover:bg-xmas-pine"
                   >
-                    <KeyRound aria-hidden /> Check My Monito/Monita
+                    <KeyRound aria-hidden /> Puntahan ang Check My Monito/Monita
                   </Button>
                 </div>
               )}

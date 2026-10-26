@@ -9,7 +9,6 @@ export type View =
   | "check"
   | "my-assignment"
   | "status"
-  | "gc-message"
   | "admin-login"
   | "admin";
 

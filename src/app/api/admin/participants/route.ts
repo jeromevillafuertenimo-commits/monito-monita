@@ -37,6 +37,8 @@ export async function GET() {
         lastName: p.lastName,
         sex: p.sex,
         identityCode: p.identityCode,
+        codeColor: p.codeColor, // prefill para sa Edit details dialog
+        codeWord: p.codeWord,
         pin: p.pin, // admin-only visibility: para matulungan ang nakalimutan ang PIN
         isSample: p.isSample,
         createdAt: p.createdAt,

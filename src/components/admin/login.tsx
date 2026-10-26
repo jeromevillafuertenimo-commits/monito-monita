@@ -144,6 +144,20 @@ export default function AdminLoginView({ ctx }: { ctx: AppCtx }) {
             </Button>
           </form>
 
+          {/* Hint box */}
+          <div className="mt-5 rounded-lg border border-dashed border-xmas-gold/50 bg-xmas-gold/10 p-3">
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Default credentials:</span>{" "}
+              <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">admin</code>{" "}
+              /{" "}
+              <code className="rounded bg-background px-1.5 py-0.5 font-mono text-[11px]">
+                monito2026
+              </code>{" "}
+              — palitan agad ang password sa{" "}
+              <span className="font-semibold text-foreground">Settings &amp; Audit</span> tab.
+            </p>
+          </div>
+
           <Separator className="my-5" />
 
           <Button
