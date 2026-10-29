@@ -229,7 +229,13 @@ export default function CheckView({ ctx }: { ctx: AppCtx }) {
 
   /** Sign-in from the released-mode card. */
   const handleSignIn = (data: SignInResult) => {
-    setSession({ token: data.token, identityCode: data.identityCode });
+    setSession({
+      token: data.token,
+      identityCode: data.identityCode,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      pin: data.pin,
+    });
     if (data.released && data.assignment) {
       setAssignment(data.assignment);
       setFound(true);
@@ -246,7 +252,13 @@ export default function CheckView({ ctx }: { ctx: AppCtx }) {
 
   /** Sign-in from the pre-release waiting panel. */
   const handleWaitingSignIn = (data: SignInResult) => {
-    setSession({ token: data.token, identityCode: data.identityCode });
+    setSession({
+      token: data.token,
+      identityCode: data.identityCode,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      pin: data.pin,
+    });
     if (data.released && data.assignment) {
       setAssignment(data.assignment);
       setFound(true);

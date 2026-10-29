@@ -46,7 +46,13 @@ export default function WelcomeView({ ctx }: { ctx: AppCtx }) {
   /** One sign-in handler for locked AND unlocked homes — routes the user to
    * wherever they most likely want to go, so nobody lands on a dead end. */
   const handleSignIn = (data: SignInResult) => {
-    setSession({ token: data.token, identityCode: data.identityCode });
+    setSession({
+      token: data.token,
+      identityCode: data.identityCode,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      pin: data.pin,
+    });
     void refreshEvent();
     if (data.released && data.assignment) {
       setAssignment(data.assignment);

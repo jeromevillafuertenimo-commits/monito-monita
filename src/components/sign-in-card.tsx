@@ -30,6 +30,10 @@ export interface SignInResult {
   submissionsLocked: boolean;
   released: boolean;
   assignment: AssignmentResult | null;
+  /** Echoed from the form so the app can show/copy them (never sent back by the server). */
+  firstName?: string;
+  lastName?: string;
+  pin?: string;
 }
 
 interface SignInCardProps {
@@ -82,8 +86,9 @@ export default function SignInCard({
           pin,
         }),
       });
+      const typedPin = pin;
       setPin(""); // keep the names so a retry only needs the PIN
-      onSuccess(data);
+      onSuccess({ ...data, firstName: firstName.trim(), lastName: lastName.trim(), pin: typedPin });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "May naganap na error. Pakisubok muli.";
       setError(msg);

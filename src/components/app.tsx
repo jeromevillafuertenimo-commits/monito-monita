@@ -63,13 +63,32 @@ export default function App() {
   const goAdmin = useCallback(() => navigate("admin"), [navigate]);
 
   const setSessionPersisted = useCallback((s: Session | null) => {
-    setSession(s);
+    // Merge: a later call without names/PIN (same person) must not wipe what
+    // the participant typed earlier in this tab.
+    let merged = s;
+    if (s) {
+      try {
+        const raw = window.sessionStorage.getItem(SESSION_KEY);
+        const prev = raw ? (JSON.parse(raw) as Session) : null;
+        if (prev && prev.identityCode === s.identityCode) {
+          merged = {
+            ...s,
+            firstName: s.firstName ?? prev.firstName,
+            lastName: s.lastName ?? prev.lastName,
+            pin: s.pin ?? prev.pin,
+          };
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    setSession(merged);
     try {
-      if (s) {
-        // Persist only the non-secret fields — the PIN lives in memory for the
-        // current screen only and is never written to storage.
-        const persistable: Session = { token: s.token, identityCode: s.identityCode };
-        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(persistable));
+      if (merged) {
+        // sessionStorage is per-tab and cleared when the tab closes, on
+        // log out, and when the admin locks submissions. It lets the
+        // confirmation page still show/copy the sign-in details after a refresh.
+        window.sessionStorage.setItem(SESSION_KEY, JSON.stringify(merged));
       } else {
         window.sessionStorage.removeItem(SESSION_KEY);
       }

@@ -111,7 +111,13 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
       navigate("my-assignment");
       return;
     }
-    setSession({ token: data.token, identityCode: data.identityCode });
+    setSession({
+      token: data.token,
+      identityCode: data.identityCode,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      pin: data.pin,
+    });
     toast.success(
       `Naka-sign in ka na, ${data.identityCode}! 🎄 Ito ang wishlist mo — puwede mo itong tapusin o i-edit.`
     );

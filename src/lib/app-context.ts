@@ -15,10 +15,10 @@ export type View =
 export interface Session {
   token: string;
   identityCode: string;
-  /** In-memory only (never persisted): shown once on the confirmation page. */
+  /** Kept for this browser tab only (sessionStorage); cleared on log out / lock / tab close. */
   firstName?: string;
   lastName?: string;
-  /** The 6-digit PIN, known only in-memory right after registration (never persisted). */
+  /** The participant's own 6-digit PIN, kept for this browser tab only so it can be shown/copied. */
   pin?: string;
 }
 
