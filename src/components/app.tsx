@@ -5,7 +5,7 @@
 // session token for convenience during a browsing session.
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gift, Info, LockKeyhole, Home, Loader2 } from "lucide-react";
+import { Gift, Info, LockKeyhole, Home, Loader2, Snowflake, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AppCtx,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
 import { LightGarland, Snowfall, VerseFooter } from "@/components/decor";
+import { useDisplayPrefs } from "@/lib/use-display-prefs";
 
 import WelcomeView from "@/components/views/welcome";
 import RegisterView from "@/components/views/register";
@@ -40,6 +41,7 @@ const VIEW_TRANSITION = {
 };
 
 export default function App() {
+  const prefs = useDisplayPrefs();
   const [view, setView] = useState<View>("welcome");
   const [event, setEvent] = useState<EventStatus | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -184,7 +186,7 @@ export default function App() {
   return (
     <div className="relative flex min-h-screen flex-col bg-xmas-cream">
       <LightGarland />
-      <Snowfall />
+      {prefs.snow && <Snowfall />}
 
       <header className="sticky top-0 z-30 border-b border-border/60 bg-xmas-cream/90 backdrop-blur no-print">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-3">
@@ -225,6 +227,26 @@ export default function App() {
             >
               <Info className="h-4 w-4" aria-hidden />
               <span className="hidden sm:inline">Status</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={prefs.toggleSnow}
+              aria-label={prefs.snow ? "Patayin ang snow" : "Buksan ang snow"}
+              aria-pressed={prefs.snow}
+              className="gap-1.5 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
+            >
+              <Snowflake className={`h-4 w-4 ${prefs.snow ? "" : "opacity-40"}`} aria-hidden />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={prefs.cycleTextScale}
+              aria-label={`Laki ng letra: ${prefs.textScale}%. Pindutin para palitan.`}
+              className="gap-0.5 px-2 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
+            >
+              <Type className="h-4 w-4" aria-hidden />
+              <span className="text-[10px] font-bold">{prefs.textScale === 100 ? "A" : prefs.textScale === 112 ? "A+" : "A++"}</span>
             </Button>
             <Button
               variant="ghost"

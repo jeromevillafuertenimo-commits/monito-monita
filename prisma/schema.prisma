@@ -71,6 +71,8 @@ model EventSettings {
   randomizationStatus String    @default("not_started") // not_started | completed | released
   releasedAt          DateTime?
   releasedBy          String?
+  registrationClosesAt DateTime? // optional: registration closes automatically at this time
+  submissionsLockAt    DateTime? // optional: wishlist submissions lock automatically at this time
   updatedAt           DateTime  @updatedAt
 }
 

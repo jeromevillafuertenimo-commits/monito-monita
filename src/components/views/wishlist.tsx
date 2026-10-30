@@ -1,7 +1,8 @@
 "use client";
 
 // Participant wishlist: create/update up to 3 gift wishes, review, then submit.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
 import { ArrowLeft, Bell, Eye, Gift, Loader2, Lock, Star } from "lucide-react";
 import { AppCtx, WishlistDTO } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
@@ -26,6 +27,23 @@ interface WishForm {
   name: string;
   details: string;
 }
+
+const WISH_IDEAS = [
+  "Tumbler",
+  "Mug",
+  "Tote bag",
+  "Umbrella",
+  "Wallet",
+  "Notebook set",
+  "Scented candle",
+  "Hand towel",
+  "Socks",
+  "Chocolates",
+  "Planner",
+  "Earphones case",
+  "Lotion set",
+  "Cap",
+];
 
 const PLACEHOLDERS: { name: string; details: string }[] = [
   { name: "e.g. T-shirt", details: "e.g. Size Medium, black, plain design" },
@@ -60,6 +78,33 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
   const [mode, setMode] = useState<"form" | "review">("form");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const draftRestored = useRef(false);
+  const draftKey = session ? `mm-draft-wishlist:${session.identityCode}` : null;
+
+  // Auto-save an unfinished wishlist on this device; restore it after a refresh.
+  useEffect(() => {
+    if (loading || loadError || !draftKey || draftRestored.current) return;
+    draftRestored.current = true;
+    const d = lsGetJson<WishForm[]>(draftKey);
+    if (Array.isArray(d) && d.length === 3 && wishes.every((w) => !w.name && !w.details)) {
+      setWishes(d.map((x) => ({ name: String(x?.name ?? "").slice(0, 80), details: String(x?.details ?? "").slice(0, 200) })));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, loadError, draftKey]);
+  useEffect(() => {
+    if (loading || !draftKey || !draftRestored.current) return;
+    if (wishes.some((w) => w.name || w.details)) lsSetJson(draftKey, wishes);
+  }, [wishes, loading, draftKey]);
+
+  /** Tap an idea chip: fills the first empty wish name. */
+  const addIdea = (idea: string) => {
+    const idx = wishes.findIndex((w) => !w.name.trim());
+    if (idx === -1) {
+      toast("Puno na ang 3 wishes. Burahin muna ang isa para magdagdag ng idea.");
+      return;
+    }
+    setWishes((prev) => prev.map((w, i) => (i === idx ? { ...w, name: idea } : w)));
+  };
 
   useEffect(() => {
     if (!session) return;
@@ -158,6 +203,7 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
         token: session.token,
         body: JSON.stringify({ wishes: filledWishes }),
       });
+      if (draftKey) lsRemove(draftKey);
       toast.success("Na-save ang wishlist mo!");
       navigate("submitted");
     } catch (err) {
@@ -315,6 +361,24 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
                 noValidate
                 className="space-y-5"
               >
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-xmas-forest">
+                    Walang maisip? Pindutin ang idea para idagdag 💡
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {WISH_IDEAS.map((idea) => (
+                      <button
+                        key={idea}
+                        type="button"
+                        onClick={() => addIdea(idea)}
+                        className="min-h-9 rounded-full border border-xmas-gold/60 bg-xmas-gold/10 px-3 text-xs font-medium text-xmas-forest hover:bg-xmas-gold/25"
+                      >
+                        + {idea}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {wishes.map((w, idx) => (
                   <fieldset key={idx} className="space-y-3 rounded-lg border border-border/80 p-4">
                     <legend className="px-1 font-heading text-sm font-bold text-xmas-forest">
@@ -329,6 +393,9 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
                         placeholder={PLACEHOLDERS[idx].name}
                         maxLength={80}
                       />
+                      <p className="text-right text-[11px] text-muted-foreground" aria-hidden>
+                        {w.name.length}/80
+                      </p>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor={`wish-${idx + 1}-details`}>
@@ -340,8 +407,11 @@ export default function WishlistView({ ctx }: { ctx: AppCtx }) {
                         value={w.details}
                         onChange={(e) => setWish(idx, { details: e.target.value })}
                         placeholder={PLACEHOLDERS[idx].details}
-                        maxLength={240}
+                        maxLength={200}
                       />
+                      <p className="text-right text-[11px] text-muted-foreground" aria-hidden>
+                        {w.details.length}/200
+                      </p>
                     </div>
                   </fieldset>
                 ))}

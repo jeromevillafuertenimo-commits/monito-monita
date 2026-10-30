@@ -21,7 +21,40 @@ export function jsonOk(data: unknown, status: number = 200): NextResponse {
 
 export async function getSettingsOrSeed() {
   await ensureSeed();
-  return db.eventSettings.findUnique({ where: { id: "main" } });
+  const settings = await db.eventSettings.findUnique({ where: { id: "main" } });
+  if (!settings) return settings;
+
+  // Scheduled changes (set by the admin) are applied lazily: the first request
+  // after the chosen time flips the switch, exactly like the manual buttons.
+  const now = new Date();
+  const patch: Record<string, unknown> = {};
+  const notes: string[] = [];
+  if (settings.registrationOpen && settings.registrationClosesAt && settings.registrationClosesAt <= now) {
+    patch.registrationOpen = false;
+    patch.registrationClosesAt = null;
+    notes.push("registration closed");
+  }
+  if (
+    !settings.submissionsLocked &&
+    settings.submissionsLockAt &&
+    settings.submissionsLockAt <= now &&
+    settings.randomizationStatus === "not_started"
+  ) {
+    patch.submissionsLocked = true;
+    patch.lockedAt = now;
+    patch.lockedBy = "scheduler";
+    patch.submissionsLockAt = null;
+    notes.push("submissions locked");
+  }
+  if (Object.keys(patch).length === 0) return settings;
+  try {
+    const updated = await db.eventSettings.update({ where: { id: "main" }, data: patch });
+    const { audit } = await import("@/lib/auth");
+    await audit("scheduler", "SCHEDULED_CHANGE", `Applied schedule: ${notes.join(", ")}`);
+    return updated;
+  } catch {
+    return settings;
+  }
 }
 
 /** Returns the signed-in admin username or null. */
@@ -77,8 +110,12 @@ export function publicEventPayload(settings: {
   randomizationStatus: string;
   lockedAt: Date | null;
   releasedAt: Date | null;
+  registrationClosesAt?: Date | null;
+  submissionsLockAt?: Date | null;
 }) {
   return {
+    registrationClosesAt: settings.registrationClosesAt ?? null,
+    submissionsLockAt: settings.submissionsLockAt ?? null,
     eventName: settings.eventName,
     budgetMin: settings.budgetMin,
     budgetMax: settings.budgetMax,

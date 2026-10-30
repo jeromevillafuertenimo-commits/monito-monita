@@ -25,6 +25,10 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import SignInCard, { SignInResult } from "@/components/sign-in-card";
 import { GiftBox } from "@/components/gift-box";
 import { SectionTitle, ChristmasCard, BudgetBadge, FellowshipDateBadge } from "@/components/decor";
+import { EventCountdowns } from "@/components/countdown";
+import { ShareButtons } from "@/components/share-button";
+import { InstallApp } from "@/components/install-app";
+import { HowItWorks } from "@/components/how-it-works";
 
 export default function WelcomeView({ ctx }: { ctx: AppCtx }) {
   const { navigate, session, event, setSession, refreshEvent, setAssignment } = ctx;
@@ -273,6 +277,12 @@ export default function WelcomeView({ ctx }: { ctx: AppCtx }) {
           </span>
         </p>
         {event && <BudgetBadge min={event.budgetMin} max={event.budgetMax} />}
+        <EventCountdowns event={event} />
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <HowItWorks budgetMin={event?.budgetMin} budgetMax={event?.budgetMax} />
+          <InstallApp />
+        </div>
+        <ShareButtons eventName={eventName} />
       </section>
 
       {/* Welcome back card (already signed in on this device) */}

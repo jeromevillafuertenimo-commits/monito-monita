@@ -1,0 +1,31 @@
+{
+  "name": "Monito-Monita Christmas Exchange Gift",
+  "short_name": "Monito-Monita",
+  "description": "Christmas Fellowship Monito-Monita \u2014 register, wishlist, and reveal.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf9ee",
+  "theme_color": "#1b4332",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

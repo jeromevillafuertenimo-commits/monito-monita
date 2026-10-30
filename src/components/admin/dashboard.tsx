@@ -113,6 +113,8 @@ interface AdminEvent {
   releasedAt: string | null;
   lockedBy: string | null;
   releasedBy: string | null;
+  registrationClosesAt?: string | null;
+  submissionsLockAt?: string | null;
 }
 
 interface Overview {
@@ -190,6 +192,40 @@ const fmtShort = (d?: string | null) =>
         minute: "2-digit",
       })
     : "—";
+
+/** Copy text to the clipboard (with a fallback for phones/older browsers). */
+async function copyTextSafe(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+}
+
+/** ISO string -> value for <input type="datetime-local"> in the admin's local time. */
+function toLocalInput(iso?: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const errMsg = (err: unknown, fallback = "May error sa server. Pakisubok muli.") =>
   err instanceof Error ? err.message : fallback;
@@ -897,13 +933,45 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
     }
   };
 
+  /** Undo a delete by re-creating the participant (same name, code, PIN and wishlist). */
+  const undoDelete = async (p: ParticipantRow) => {
+    try {
+      const wishes = p.wishlist
+        ? wishesFrom(p.wishlist)
+            .filter((w) => w.name)
+            .map((w) => ({ name: w.name, details: w.details ?? "" }))
+        : [];
+      await apiJson("/api/admin/participants", {
+        method: "POST",
+        body: JSON.stringify({
+          firstName: p.firstName,
+          lastName: p.lastName,
+          sex: p.sex,
+          color: p.codeColor,
+          word: p.codeWord,
+          pin: p.pin,
+          ...(wishes.length ? { wishes } : {}),
+        }),
+      });
+      toast.success(`Naibalik na si ${p.firstName} ${p.lastName} (${p.identityCode}). ✅`);
+      void onMutate();
+    } catch (err) {
+      toast.error(`Hindi naibalik: ${errMsg(err)}`);
+    }
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget || deleteBusy) return;
     setDeleteBusy(true);
     try {
-      await apiJson(`/api/admin/participants/${deleteTarget.id}`, { method: "DELETE" });
+      const removed = deleteTarget;
+      await apiJson(`/api/admin/participants/${removed.id}`, { method: "DELETE" });
       toast.success(
-        `Nabura na si ${deleteTarget.firstName} ${deleteTarget.lastName} (${deleteTarget.identityCode}) kasama ang wishlist at assignments niya.`
+        `Nabura na si ${removed.firstName} ${removed.lastName} (${removed.identityCode}) kasama ang wishlist at assignments niya.`,
+        {
+          duration: 12000,
+          action: removed.pin && !removed.isSample ? { label: "I-undo", onClick: () => void undoDelete(removed) } : undefined,
+        }
       );
       setDeleteTarget(null);
       void onMutate();
@@ -915,6 +983,21 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
   };
 
   const participants = data?.participants ?? [];
+  const pendingList = participants.filter((p) => !p.wishlistSubmitted && !p.isSample);
+  const copyReminder = async () => {
+    if (pendingList.length === 0) {
+      toast("Wala nang pending — lahat nakapag-submit na! 🎉");
+      return;
+    }
+    const names = pendingList.map((p) => p.firstName).join(", ");
+    const msg =
+      `🎄 Reminder po! Wala pa kaming wishlist mula kina: ${names}.\n\n` +
+      `Pakisulat na po ang wishlist sa ${window.location.origin} (Sign in sa Home page gamit ang First name, Last name at 6-digit PIN). Salamat! 🎁`;
+    const ok = await copyTextSafe(msg);
+    toast[ok ? "success" : "error"](
+      ok ? `Nakopya ang reminder para sa ${pendingList.length} tao. I-paste sa GC! 📋` : "Hindi makopya. Pakisubukan muli."
+    );
+  };
   const filtered = participants.filter((p) => {
     const q = search.trim().toLowerCase();
     const matchesQ =
@@ -1081,17 +1164,41 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
             aria-label="Search name o identity code"
           />
         </div>
-        <Select value={filter} onValueChange={(v) => setFilter(v as ParticipantFilter)}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Filter participants">
-            <SelectValue placeholder="Filter" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="sample">Sample only</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Filter participants">
+          {(
+            [
+              { key: "all", label: "Lahat", n: participants.length },
+              { key: "submitted", label: "Nag-submit", n: participants.filter((p) => p.wishlistSubmitted).length },
+              { key: "pending", label: "Pending", n: participants.filter((p) => !p.wishlistSubmitted).length },
+              { key: "sample", label: "Sample", n: participants.filter((p) => p.isSample).length },
+            ] as { key: ParticipantFilter; label: string; n: number }[]
+          )
+            .filter((c) => c.key !== "sample" || c.n > 0)
+            .map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => setFilter(c.key)}
+                aria-pressed={filter === c.key}
+                className={`min-h-9 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                  filter === c.key
+                    ? "border-xmas-forest bg-xmas-forest text-white"
+                    : "border-border bg-white text-xmas-forest hover:bg-accent"
+                }`}
+              >
+                {c.label} ({c.n})
+              </button>
+            ))}
+          {pendingList.length > 0 && (
+            <button
+              type="button"
+              onClick={copyReminder}
+              className="min-h-9 rounded-full border border-xmas-gold bg-xmas-gold/15 px-3 text-xs font-semibold text-xmas-forest hover:bg-xmas-gold/30"
+            >
+              📋 Copy reminder ({pendingList.length})
+            </button>
+          )}
+        </div>
         {bunutanDone && (
           <a href="/api/admin/export/assignments" download className="shrink-0">
             <Button
@@ -2563,6 +2670,8 @@ function SettingsTab({ version, onMutate }: TabProps) {
   const [budgetMax, setBudgetMax] = useState("200");
   const [savingSettings, setSavingSettings] = useState(false);
   const [formSeeded, setFormSeeded] = useState(false);
+  const [regCloseAt, setRegCloseAt] = useState("");
+  const [lockAt, setLockAt] = useState("");
 
   // --- Registration switch ---
   const [regOpen, setRegOpen] = useState<boolean | null>(null);
@@ -2603,6 +2712,8 @@ function SettingsTab({ version, onMutate }: TabProps) {
       setEventName(ev.eventName);
       setBudgetMin(String(ev.budgetMin));
       setBudgetMax(String(ev.budgetMax));
+      setRegCloseAt(toLocalInput(ev.registrationClosesAt));
+      setLockAt(toLocalInput(ev.submissionsLockAt));
       setFormSeeded(true);
     }
   }, [overview.data, formSeeded]);
@@ -2786,7 +2897,13 @@ function SettingsTab({ version, onMutate }: TabProps) {
     try {
       await apiJson("/api/admin/settings", {
         method: "POST",
-        body: JSON.stringify({ eventName: eventName.trim(), budgetMin: min, budgetMax: max }),
+        body: JSON.stringify({
+          eventName: eventName.trim(),
+          budgetMin: min,
+          budgetMax: max,
+          registrationClosesAt: regCloseAt ? new Date(regCloseAt).toISOString() : null,
+          submissionsLockAt: lockAt ? new Date(lockAt).toISOString() : null,
+        }),
       });
       toast.success("Na-save na ang event settings!");
       await onMutate();
@@ -2948,6 +3065,32 @@ function SettingsTab({ version, onMutate }: TabProps) {
               />
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="reg-close-at">Awtomatikong isara ang registration (optional)</Label>
+              <Input
+                id="reg-close-at"
+                type="datetime-local"
+                value={regCloseAt}
+                onChange={(e) => setRegCloseAt(e.target.value)}
+                disabled={savingSettings}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="lock-at">Awtomatikong i-lock ang wishlists (optional)</Label>
+              <Input
+                id="lock-at"
+                type="datetime-local"
+                value={lockAt}
+                onChange={(e) => setLockAt(e.target.value)}
+                disabled={savingSettings}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Iwanang blangko kung walang schedule. Ina-apply ito sa unang bisita/refresh pagkatapos ng oras. Maaari mo
+            pa rin gamitin ang mga manual na buttons anumang oras.
+          </p>
           <Button
             type="submit"
             disabled={savingSettings}

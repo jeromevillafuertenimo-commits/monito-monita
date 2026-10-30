@@ -34,6 +34,8 @@ export interface EventStatus {
   randomizationStatus: "not_started" | "completed" | "released";
   lockedAt: string | null;
   releasedAt: string | null;
+  registrationClosesAt?: string | null;
+  submissionsLockAt?: string | null;
   participantCount?: number;
 }
 

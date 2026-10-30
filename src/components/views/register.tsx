@@ -1,23 +1,19 @@
 "use client";
 
 // Participant registration: real name + sex + unique two-word identity code + 6-digit PIN.
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, KeyRound, Loader2, Lock, ShieldCheck, Star } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, Dices, KeyRound, Loader2, Lock, ShieldCheck, Star } from "lucide-react";
 import { AppCtx } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
 import { ANIMALS, COLORS, FLOWERS } from "@/lib/words";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
+import { PinInput } from "@/components/pin-input";
 import { toast } from "sonner";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
 import { SectionTitle, ChristmasCard } from "@/components/decor";
 import { Combobox } from "@/components/combobox";
 
@@ -47,6 +43,75 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [serverError, setServerError] = useState<string | null>(null);
+  const [availability, setAvailability] = useState<"idle" | "checking" | "free" | "taken">("idle");
+  const [surprising, setSurprising] = useState(false);
+  const draftReady = useRef(false);
+
+  // Auto-save a draft (never the PIN) so a refresh doesn't wipe the form.
+  useEffect(() => {
+    const d = lsGetJson<{ firstName?: string; lastName?: string; sex?: Sex; color?: string; word?: string }>(
+      "mm-draft-register"
+    );
+    if (d) {
+      if (d.firstName) setFirstName(d.firstName);
+      if (d.lastName) setLastName(d.lastName);
+      if (d.sex === "male" || d.sex === "female") setSex(d.sex);
+      if (d.color) setColor(d.color);
+      if (d.word) setWord(d.word);
+    }
+    draftReady.current = true;
+  }, []);
+  useEffect(() => {
+    if (!draftReady.current) return;
+    lsSetJson("mm-draft-register", { firstName, lastName, sex, color, word });
+  }, [firstName, lastName, sex, color, word]);
+
+  // Live availability of the chosen identity code.
+  useEffect(() => {
+    if (!sex || !color || !word) {
+      setAvailability("idle");
+      return;
+    }
+    setAvailability("checking");
+    let cancelled = false;
+    const t = window.setTimeout(async () => {
+      try {
+        const r = await apiJson<{ valid: boolean; available: boolean }>(
+          `/api/code-check?sex=${sex}&color=${encodeURIComponent(color)}&word=${encodeURIComponent(word)}`
+        );
+        if (!cancelled) setAvailability(r.valid ? (r.available ? "free" : "taken") : "idle");
+      } catch {
+        if (!cancelled) setAvailability("idle");
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [sex, color, word]);
+
+  const surprise = async () => {
+    if (!sex) {
+      toast.error("Piliin muna ang sex para tamang flower/animal ang lumabas.");
+      return;
+    }
+    setSurprising(true);
+    try {
+      const r = await apiJson<{ color: string; word: string }>(`/api/random-code?sex=${sex}`);
+      setColor(r.color);
+      setWord(r.word);
+      setErrors((prev) => ({ ...prev, color: undefined, word: undefined }));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "May naganap na error. Pakisubok muli.");
+    } finally {
+      setSurprising(false);
+    }
+  };
+
+  const nameDone = firstName.trim().length >= 2 && lastName.trim().length >= 2;
+  const codeDone = !!sex && !!color && !!word && availability !== "taken";
+  const pinDone = /^\d{6}$/.test(pin) && pin === pinConfirm;
+  const stepsDone = [nameDone, codeDone, pinDone].filter(Boolean).length;
 
   const wordOptions = sex === "female" ? FLOWERS : sex === "male" ? ANIMALS : [];
   const wordLabel = sex === "female" ? "Flower" : sex === "male" ? "Animal" : "Flower / Animal";
@@ -68,6 +133,7 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
     if (!sex) errs.sex = "Piliin ang iyong kasarian.";
     if (!color) errs.color = "Pumili ng color.";
     if (!word) errs.word = `Pumili ng ${sex === "female" ? "flower" : "animal"}.`;
+    if (availability === "taken") errs.word = "May kumuha na ng code na ito. Pumili ng ibang combination.";
     if (!/^\d{6}$/.test(pin)) errs.pin = "Pakicomplete ang 6-digit PIN mo (numbers lang, eksaktong 6 digits).";
     if (!/^\d{6}$/.test(pinConfirm)) errs.pinConfirm = "Pakicheck ulit ang PIN mo (numbers lang, eksaktong 6 digits).";
     else if (pin !== pinConfirm) errs.pinConfirm = "Hindi tugma ang dalawang PIN. Pakicheck ulit.";
@@ -103,6 +169,7 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
         lastName: lastName.trim(),
         pin,
       });
+      lsRemove("mm-draft-register");
       toast.success("Registration successful! Proceed na tayo sa wishlist.");
       navigate("confirmation");
     } catch (err) {
@@ -138,7 +205,32 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
         </Alert>
       ) : (
         <ChristmasCard className="p-4 sm:p-6">
-          <form onSubmit={handleSubmit} noValidate className="space-y-6">
+          {/* Progress */}
+          <div className="mb-5" role="status" aria-live="polite">
+            <div className="flex items-center justify-between text-xs font-semibold text-xmas-forest">
+              <span>{stepsDone >= 3 ? "Handa ka na! 🎉" : `Hakbang ${stepsDone + 1} ng 3`}</span>
+              <span className="text-muted-foreground">{stepsDone} / 3 tapos na</span>
+            </div>
+            <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-2 rounded-full bg-xmas-gold transition-all duration-300"
+                style={{ width: `${(stepsDone / 3) * 100}%` }}
+              />
+            </div>
+            <ol className="mt-2 grid grid-cols-3 gap-1 text-center text-[11px] font-medium">
+              {[
+                { label: "Pangalan", done: nameDone },
+                { label: "Identity Code", done: codeDone },
+                { label: "PIN", done: pinDone },
+              ].map((st) => (
+                <li key={st.label} className={st.done ? "text-xmas-forest" : "text-muted-foreground"}>
+                  {st.done ? <Check className="mr-0.5 inline h-3 w-3" aria-hidden /> : null}
+                  {st.label}
+                </li>
+              ))}
+            </ol>
+          </div>
+          <form id="register-form" onSubmit={handleSubmit} noValidate className="space-y-6">
             {/* Names */}
             <div className="space-y-3">
               <div className="grid gap-4 sm:grid-cols-2">
@@ -278,6 +370,22 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                   </span>
                 )}
               </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium" aria-live="polite">
+                  {availability === "checking" && <span className="text-muted-foreground">Chine-check kung available…</span>}
+                  {availability === "free" && <span className="text-xmas-forest">✅ Available pa ang code na ito!</span>}
+                  {availability === "taken" && <span className="text-destructive">❌ May kumuha na — pumili ng iba.</span>}
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={surprise}
+                  disabled={surprising}
+                  className="min-h-11 gap-2 rounded-lg border-xmas-gold/60 text-xmas-forest hover:bg-accent"
+                >
+                  {surprising ? <Loader2 className="animate-spin" aria-hidden /> : <Dices aria-hidden />} Surprise me!
+                </Button>
+              </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 May <span className="font-semibold text-xmas-forest">search box</span> sa bawat
                 dropdown — i-type lang (e.g. "gum" para sa Gumamela). Kung wala sa listahan ang
@@ -305,50 +413,32 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                   <Label htmlFor="pin-input" className="text-xs text-muted-foreground">
                     6-digit PIN
                   </Label>
-                  <InputOTP
+                  <PinInput
                     id="pin-input"
-                    maxLength={6}
-                    pattern={REGEXP_ONLY_DIGITS}
                     value={pin}
-                    onChange={(v: string) => {
+                    onChange={(v) => {
                       setPin(v);
                       setErrors((prev) => ({ ...prev, pin: undefined }));
                     }}
-                    inputMode="numeric"
-                    aria-label="6-digit PIN"
-                    aria-invalid={!!errors.pin}
-                  >
-                    <InputOTPGroup>
-                      {Array.from({ length: 6 }, (_, i) => (
-                        <InputOTPSlot key={i} index={i} className="h-12 w-11 border-xmas-forest/30 text-lg" />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
+                    ariaLabel="6-digit PIN"
+                    invalid={!!errors.pin}
+                  />
                   {errors.pin && <p className="text-xs font-medium text-destructive">{errors.pin}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="pin-confirm-input" className="text-xs text-muted-foreground">
                     Kumpirmahin ang PIN
                   </Label>
-                  <InputOTP
+                  <PinInput
                     id="pin-confirm-input"
-                    maxLength={6}
-                    pattern={REGEXP_ONLY_DIGITS}
                     value={pinConfirm}
-                    onChange={(v: string) => {
+                    onChange={(v) => {
                       setPinConfirm(v);
                       setErrors((prev) => ({ ...prev, pinConfirm: undefined }));
                     }}
-                    inputMode="numeric"
-                    aria-label="Kumpirmahin ang 6-digit PIN"
-                    aria-invalid={!!errors.pinConfirm}
-                  >
-                    <InputOTPGroup>
-                      {Array.from({ length: 6 }, (_, i) => (
-                        <InputOTPSlot key={i} index={i} className="h-12 w-11 border-xmas-forest/30 text-lg" />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
+                    ariaLabel="Kumpirmahin ang 6-digit PIN"
+                    invalid={!!errors.pinConfirm}
+                  />
                   {errors.pinConfirm && (
                     <p className="text-xs font-medium text-destructive">{errors.pinConfirm}</p>
                   )}
@@ -386,7 +476,7 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
             <Button
               type="submit"
               disabled={submitting}
-              className="min-h-12 w-full rounded-lg bg-xmas-forest text-base font-semibold text-xmas-cream hover:bg-xmas-pine"
+              className="hidden min-h-12 w-full rounded-lg bg-xmas-forest text-base font-semibold text-xmas-cream hover:bg-xmas-pine sm:inline-flex"
             >
               {submitting ? (
                 <>
@@ -400,6 +490,28 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
             </Button>
           </form>
         </ChristmasCard>
+      )}
+
+      {/* Phone: submit button stays visible while scrolling the long form */}
+      {!registrationClosed && (
+        <div className="sticky bottom-0 z-20 -mx-4 border-t border-border bg-xmas-cream/95 px-4 py-3 backdrop-blur sm:hidden no-print">
+          <Button
+            type="submit"
+            form="register-form"
+            disabled={submitting}
+            className="min-h-12 w-full rounded-lg bg-xmas-forest text-base font-semibold text-xmas-cream hover:bg-xmas-pine"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="animate-spin" aria-hidden /> Nagre-register…
+              </>
+            ) : (
+              <>
+                Register &amp; Proceed <ArrowRight aria-hidden />
+              </>
+            )}
+          </Button>
+        </div>
       )}
     </div>
   );

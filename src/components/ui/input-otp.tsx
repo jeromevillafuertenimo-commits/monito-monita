@@ -6,6 +6,9 @@ import { MinusIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/** When true, PIN slots show a dot instead of the digit (see components/pin-input.tsx). */
+const PinMaskContext = React.createContext(false)
+
 function InputOTP({
   className,
   containerClassName,
@@ -45,6 +48,7 @@ function InputOTPSlot({
 }) {
   const inputOTPContext = React.useContext(OTPInputContext)
   const { char, hasFakeCaret, isActive } = inputOTPContext?.slots[index] ?? {}
+  const masked = React.useContext(PinMaskContext)
 
   return (
     <div
@@ -56,7 +60,7 @@ function InputOTPSlot({
       )}
       {...props}
     >
-      {char}
+      {char && masked ? "•" : char}
       {hasFakeCaret && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <div className="animate-caret-blink bg-foreground h-4 w-px duration-1000" />
@@ -74,4 +78,4 @@ function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator }
+export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator, PinMaskContext }

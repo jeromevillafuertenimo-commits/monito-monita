@@ -15,12 +15,30 @@ import { apiJson } from "@/lib/api-utils-client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChristmasCard, BudgetBadge } from "@/components/decor";
+import { Confetti } from "@/components/confetti";
+import { Checkbox } from "@/components/ui/checkbox";
+import { lsGetJson, lsSetJson } from "@/lib/local-store";
 import { FELLOWSHIP_DATE } from "@/lib/event-config";
 
 export default function MyAssignmentView({ ctx }: { ctx: AppCtx }) {
   const { navigate, assignment, session, event, setSession, setAssignment } = ctx;
   const [loggedOut, setLoggedOut] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  // Giver's checklist: which wishes I have already bought (saved on this phone only).
+  const checklistKey = assignment ? `mm-checklist:${assignment.recipientCode}` : null;
+  const [bought, setBought] = useState<number[]>([]);
+  useEffect(() => {
+    if (!checklistKey) return;
+    const saved = lsGetJson<number[]>(checklistKey);
+    setBought(Array.isArray(saved) ? saved.filter((n) => Number.isInteger(n)) : []);
+  }, [checklistKey]);
+  const toggleBought = (i: number) => {
+    setBought((prev) => {
+      const next = prev.includes(i) ? prev.filter((n) => n !== i) : [...prev, i];
+      if (checklistKey) lsSetJson(checklistKey, next);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (loggedOut) return; // already leaving — don't bounce the user around
@@ -54,6 +72,8 @@ export default function MyAssignmentView({ ctx }: { ctx: AppCtx }) {
   };
 
   return (
+    <>
+    <Confetti />
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -90,12 +110,20 @@ export default function MyAssignmentView({ ctx }: { ctx: AppCtx }) {
               <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-xmas-gold font-heading text-sm font-bold text-xmas-forest">
                 {i + 1}
               </span>
-              <div className="min-w-0">
-                <p className="text-base font-semibold text-xmas-forest sm:text-lg">{w.name}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`text-base font-semibold text-xmas-forest sm:text-lg ${bought.includes(i) ? "line-through opacity-60" : ""}`}>{w.name}</p>
                 {w.details && (
                   <p className="break-words text-sm text-muted-foreground sm:text-base">{w.details}</p>
                 )}
               </div>
+              <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Checkbox
+                  checked={bought.includes(i)}
+                  onCheckedChange={() => toggleBought(i)}
+                  aria-label={`Nabili ko na: ${w.name}`}
+                />
+                Nabili na
+              </label>
             </li>
           ))}
           {assignment.wishes.length === 0 && (
@@ -172,5 +200,6 @@ export default function MyAssignmentView({ ctx }: { ctx: AppCtx }) {
         Keep it secret hanggang sa araw ng gift exchange! 🤫
       </p>
     </motion.div>
+    </>
   );
 }

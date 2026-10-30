@@ -89,6 +89,24 @@ export async function POST(request: Request) {
       data.registrationOpen = body.registrationOpen;
     }
 
+    // Optional schedule: ISO date string to set, null/"" to clear.
+    for (const key of ["registrationClosesAt", "submissionsLockAt"] as const) {
+      if (body[key] === undefined) continue;
+      const v = body[key];
+      if (v === null || v === "") {
+        data[key] = null;
+        continue;
+      }
+      const d = typeof v === "string" ? new Date(v) : null;
+      if (!d || Number.isNaN(d.getTime())) {
+        return jsonError("Hindi valid ang petsa/oras ng schedule.", 400);
+      }
+      if (d.getTime() < Date.now() - 60_000) {
+        return jsonError("Ang schedule ay dapat sa hinaharap (hindi na puwede ang nakaraang oras).", 400);
+      }
+      data[key] = d;
+    }
+
     const updated = await db.eventSettings.update({
       where: { id: "main" },
       data,

@@ -19,8 +19,14 @@ export const metadata: Metadata = {
   title: "Monito-Monita | Christmas Exchange Gift",
   description:
     "Christ-centered Monito-Monita exchange gift organizer para sa Christmas party — registration, secret wishlist, at fair random assignment.",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Monito-Monita", statusBarStyle: "default" },
   icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>",
+    icon: [
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/apple-touch-icon.png",
   },
 };
 

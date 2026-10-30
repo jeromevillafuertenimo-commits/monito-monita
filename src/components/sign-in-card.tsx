@@ -10,17 +10,18 @@
 // session disappeared (closed the browser, opened a new tab, device shared).
 // With this card embedded in every entry point, typing their name + PIN is
 // ALWAYS enough to get back in — there are no dead ends anywhere in the app.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { KeyRound, Loader2, ShieldCheck, UserRound } from "lucide-react";
 import { AssignmentResult } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
 import { toast } from "sonner";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { PinInput } from "@/components/pin-input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
 import { SectionTitle, ChristmasCard } from "@/components/decor";
 
 export interface SignInResult {
@@ -57,6 +58,17 @@ export default function SignInCard({
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [pin, setPin] = useState("");
+  const [remember, setRemember] = useState(false);
+
+  // "Tandaan ang pangalan ko": only first/last name are remembered on this device — never the PIN.
+  useEffect(() => {
+    const saved = lsGetJson<{ firstName?: string; lastName?: string }>("mm-remember-name");
+    if (saved?.firstName || saved?.lastName) {
+      setFirstName(saved.firstName ?? "");
+      setLastName(saved.lastName ?? "");
+      setRemember(true);
+    }
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +99,8 @@ export default function SignInCard({
         }),
       });
       const typedPin = pin;
+      if (remember) lsSetJson("mm-remember-name", { firstName: firstName.trim(), lastName: lastName.trim() });
+      else lsRemove("mm-remember-name");
       setPin(""); // keep the names so a retry only needs the PIN
       onSuccess({ ...data, firstName: firstName.trim(), lastName: lastName.trim(), pin: typedPin });
     } catch (err) {
@@ -157,31 +171,24 @@ export default function SignInCard({
             6-digit PIN
           </Label>
           <div className="flex justify-center">
-            <InputOTP
-              maxLength={6}
-              pattern={REGEXP_ONLY_DIGITS}
+            <PinInput
               value={pin}
-              onChange={(v: string) => {
+              onChange={(v) => {
                 setPin(v);
                 setError(null);
               }}
-              inputMode="numeric"
-              aria-label="6-digit PIN"
-              aria-invalid={!!error}
+              ariaLabel="6-digit PIN"
+              invalid={!!error}
               disabled={submitting}
-            >
-              <InputOTPGroup>
-                {Array.from({ length: 6 }, (_, i) => (
-                  <InputOTPSlot
-                    key={i}
-                    index={i}
-                    className="h-13 w-11 border-xmas-forest/40 text-xl sm:h-14 sm:w-12 sm:text-2xl"
-                  />
-                ))}
-              </InputOTPGroup>
-            </InputOTP>
+              slotClassName="h-13 w-11 border-xmas-forest/40 text-xl sm:h-14 sm:w-12 sm:text-2xl"
+            />
           </div>
         </div>
+
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-left text-sm text-muted-foreground">
+          <Checkbox checked={remember} onCheckedChange={(v) => setRemember(v === true)} aria-label="Tandaan ang pangalan ko" />
+          Tandaan ang pangalan ko sa device na ito <span className="text-xs">(hindi ang PIN)</span>
+        </label>
 
         <Button
           type="submit"
