@@ -1493,6 +1493,8 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                 <Combobox
                   id="add-color"
                   options={COLORS}
+                  allowCustom
+                  customKind="color"
                   value={addColor}
                   onChange={(v) => setAddColor(v)}
                   placeholder="Pumili ng color…"
@@ -1507,6 +1509,8 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                 <Combobox
                   id="add-word"
                   options={addSex ? wordsForSex(addSex) : []}
+                  allowCustom
+                  customKind={addSex === "female" ? "flower" : "animal"}
                   value={addWord}
                   onChange={(v) => setAddWord(v)}
                   placeholder={
@@ -1759,6 +1763,8 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                 <Combobox
                   id="edit-color"
                   options={COLORS}
+                  allowCustom
+                  customKind="color"
                   value={editColor}
                   onChange={(v) => setEditColor(v)}
                   placeholder="Pumili ng color…"
@@ -1773,6 +1779,8 @@ function ParticipantsTab({ version, onMutate }: TabProps) {
                 <Combobox
                   id="edit-word"
                   options={editSex ? wordsForSex(editSex) : []}
+                  allowCustom
+                  customKind={editSex === "female" ? "flower" : "animal"}
                   value={editWord}
                   onChange={(v) => setEditWord(v)}
                   placeholder={

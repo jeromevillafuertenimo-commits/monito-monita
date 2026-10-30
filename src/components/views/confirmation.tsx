@@ -10,7 +10,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ChristmasCard } from "@/components/decor";
 
-export default function ConfirmationView({ ctx }: { ctx: AppCtx }) {
+export default function ConfirmationView({
+  ctx,
+  mode = "registered",
+}: {
+  ctx: AppCtx;
+  mode?: "registered" | "details";
+}) {
+  const isDetails = mode === "details";
   const { navigate, session } = ctx;
   const [copiedPin, setCopiedPin] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
@@ -98,9 +105,17 @@ export default function ConfirmationView({ ctx }: { ctx: AppCtx }) {
       </div>
 
       <h1 className="font-heading text-3xl font-bold text-xmas-forest sm:text-4xl">
-        Registration Successful! 🎉
+        {isDetails ? "Ang Details Ko 🔑" : "Registration Successful! 🎉"}
       </h1>
 
+      {isDetails ? (
+        <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
+          Ito ang sign-in details mo, <span className="font-bold text-xmas-forest">{session.identityCode}</span>.
+          Gamitin ang <span className="font-semibold text-xmas-forest">First name</span>,{" "}
+          <span className="font-semibold text-xmas-forest">Last name</span>, at{" "}
+          <span className="font-semibold text-xmas-forest">6-digit PIN</span> para makabalik sa Home page.
+        </p>
+      ) : (
       <p className="max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
         Successfully registered ka na,{" "}
         <span className="font-bold text-xmas-forest">{session.identityCode}</span>! Para makabalik
@@ -109,6 +124,7 @@ export default function ConfirmationView({ ctx }: { ctx: AppCtx }) {
         <span className="font-semibold text-xmas-forest">Last name mo</span>, at ang{" "}
         <span className="font-semibold text-xmas-forest">6-digit PIN mo</span> sa ibaba.
       </p>
+      )}
 
       {/* Sign-in credentials summary */}
       <ChristmasCard className="w-full p-4 text-left sm:p-6">
@@ -186,6 +202,23 @@ export default function ConfirmationView({ ctx }: { ctx: AppCtx }) {
         </p>
       </ChristmasCard>
 
+      {isDetails ? (
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          <Button
+            onClick={() => navigate("menu")}
+            className="min-h-12 rounded-lg bg-xmas-forest px-6 text-base font-semibold text-xmas-cream hover:bg-xmas-pine"
+          >
+            Bumalik sa Menu
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => navigate("wishlist")}
+            className="min-h-11 rounded-lg border-xmas-forest/30 text-xmas-forest hover:bg-accent"
+          >
+            Edit Wishlist 🎁
+          </Button>
+        </div>
+      ) : (
       <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
         <Button
           onClick={() => navigate("wishlist")}
@@ -201,6 +234,7 @@ export default function ConfirmationView({ ctx }: { ctx: AppCtx }) {
           View Status
         </Button>
       </div>
+      )}
     </div>
   );
 }

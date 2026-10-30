@@ -21,6 +21,8 @@ import WelcomeView from "@/components/views/welcome";
 import RegisterView from "@/components/views/register";
 import WishlistView from "@/components/views/wishlist";
 import ConfirmationView from "@/components/views/confirmation";
+import ParticipantMenuView from "@/components/views/participant-menu";
+import EditIdentityView from "@/components/views/edit-identity";
 import SubmittedView from "@/components/views/submitted";
 import CheckView from "@/components/views/check";
 import MyAssignmentView from "@/components/views/my-assignment";
@@ -70,7 +72,7 @@ export default function App() {
       try {
         const raw = window.sessionStorage.getItem(SESSION_KEY);
         const prev = raw ? (JSON.parse(raw) as Session) : null;
-        if (prev && prev.identityCode === s.identityCode) {
+        if (prev && (prev.token === s.token || prev.identityCode === s.identityCode)) {
           merged = {
             ...s,
             firstName: s.firstName ?? prev.firstName,
@@ -156,6 +158,12 @@ export default function App() {
         return <WishlistView ctx={ctx} />;
       case "confirmation":
         return <ConfirmationView ctx={ctx} />;
+      case "my-details":
+        return <ConfirmationView ctx={ctx} mode="details" />;
+      case "menu":
+        return <ParticipantMenuView ctx={ctx} />;
+      case "edit-identity":
+        return <EditIdentityView ctx={ctx} />;
       case "submitted":
         return <SubmittedView ctx={ctx} />;
       case "check":

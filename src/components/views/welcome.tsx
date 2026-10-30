@@ -65,9 +65,14 @@ export default function WelcomeView({ ctx }: { ctx: AppCtx }) {
       toast.success(`Welcome, ${data.identityCode}! Hindi pa released ang bunutan.`);
       navigate("status");
     } else {
-      // Back BEFORE the lock — take them straight to their wishlist so they
-      // can fill it out or edit it right away. (This is the "I left my
-      // wishlist empty and came back" rescue path.)
+      // Back BEFORE the lock. While registration is open, show the menu first
+      // (Edit Identity Code / Edit Wishlist / View My Details). Once
+      // registration closes, go straight to the wishlist like before.
+      if (event?.registrationOpen) {
+        toast.success(`Welcome back, ${data.identityCode}! 🎄 Pumili ng gusto mong gawin.`);
+        navigate("menu");
+        return;
+      }
       if (data.wishlistSubmitted) {
         toast.success(
           `Welcome back, ${data.identityCode}! 🎄 Naka-save na ang wishlist mo — puwede mo pa itong i-edit habang open ang submissions.`
@@ -285,10 +290,10 @@ export default function WelcomeView({ ctx }: { ctx: AppCtx }) {
               </div>
               <div className="flex flex-col gap-2 sm:flex-row">
                 <Button
-                  onClick={() => navigate("wishlist")}
+                  onClick={() => navigate(event?.registrationOpen ? "menu" : "wishlist")}
                   className="min-h-11 rounded-lg bg-xmas-forest text-xmas-cream hover:bg-xmas-pine"
                 >
-                  <Gift aria-hidden /> Ituloy ang Wishlist
+                  <Gift aria-hidden /> {event?.registrationOpen ? "Buksan ang Menu" : "Ituloy ang Wishlist"}
                 </Button>
                 <Button
                   variant="outline"

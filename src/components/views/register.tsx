@@ -232,6 +232,8 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                     placeholder="Pumili ng color"
                     searchPlaceholder="I-type ang color… (e.g. ameth)"
                     emptyText="Walang color na tugma — subukan ang ibang spelling."
+                    allowCustom
+                    customKind="color"
                     invalid={!!errors.color}
                   />
                 </div>
@@ -250,6 +252,8 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
                     placeholder={wordPlaceholder}
                     searchPlaceholder={`I-type ang ${sex === "female" ? "flower" : "animal"}… (e.g. gum)`}
                     emptyText="Walang tugma. Subukan ang ibang pangalan."
+                    allowCustom
+                    customKind={sex === "female" ? "flower" : "animal"}
                     disabled={!sex}
                     invalid={!!errors.word}
                   />
@@ -276,8 +280,11 @@ export default function RegisterView({ ctx }: { ctx: AppCtx }) {
               </div>
               <p className="text-xs leading-relaxed text-muted-foreground">
                 May <span className="font-semibold text-xmas-forest">search box</span> sa bawat
-                dropdown — i-type lang (e.g. "gum" para sa Gumamela). Pumili ng combination na
-                unique — kung may kumuha na, magsusubmit kami ng error at pumili ka ng iba.
+                dropdown — i-type lang (e.g. "gum" para sa Gumamela). Kung wala sa listahan ang
+                gusto mo, i-type ang sarili mo at pindutin ang{" "}
+                <span className="font-semibold text-xmas-forest">“Gamitin ang …”</span>. Pumili ng
+                combination na unique — kung may kumuha na, magsusubmit kami ng error at pumili ka
+                ng iba.
               </p>
               {(errors.color || errors.word) && (
                 <div className="space-y-1">

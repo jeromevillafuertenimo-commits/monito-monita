@@ -7,7 +7,8 @@
 // text-base font, keyboard support (type + ↑↓ + Enter), and a clear
 // "walang nahanap" empty state.
 import { useState } from "react";
-import { Check, ChevronsUpDown, SearchX } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, SearchX } from "lucide-react";
+import { customWordError, toTitleCase } from "@/lib/words";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -33,6 +34,10 @@ interface ComboboxProps {
   /** Accessible label for the trigger button (e.g. "Color ng identity code"). */
   label?: string;
   className?: string;
+  /** Let the person type a value that is not in the list ("Gamitin ang ..."). */
+  allowCustom?: boolean;
+  /** Word for messages, e.g. "color", "flower", "animal". */
+  customKind?: string;
 }
 
 export function Combobox({
@@ -47,11 +52,25 @@ export function Combobox({
   id,
   label,
   className,
+  allowCustom = false,
+  customKind = "salita",
 }: ComboboxProps) {
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const typed = query.replace(/\s+/g, " ").trim();
+  const exact = options.some((o) => o.toLowerCase() === typed.toLowerCase());
+  const customError = allowCustom && typed && !exact ? customWordError(typed, customKind) : null;
+  const showCustom = allowCustom && !!typed && !exact && !customError;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQuery("");
+      }}
+    >
       <PopoverTrigger asChild disabled={disabled}>
         <Button
           type="button"
@@ -80,6 +99,8 @@ export function Combobox({
       >
         <Command>
           <CommandInput
+            value={query}
+            onValueChange={setQuery}
             placeholder={searchPlaceholder}
             className="h-11 text-base"
             aria-label={searchPlaceholder}
@@ -87,7 +108,11 @@ export function Combobox({
           <CommandList className="nice-scroll max-h-[min(20rem,45vh)]">
             <CommandEmpty className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
               <SearchX className="h-6 w-6 opacity-50" aria-hidden />
-              <span>{emptyText}</span>
+              <span>
+                {allowCustom
+                  ? `Wala sa listahan. Puwede kang mag-type ng sarili mong ${customKind}.`
+                  : emptyText}
+              </span>
             </CommandEmpty>
             <CommandGroup>
               {options.map((option) => {
@@ -120,6 +145,26 @@ export function Combobox({
               })}
             </CommandGroup>
           </CommandList>
+          {allowCustom && typed && !exact && (
+            <div className="border-t border-border/70 p-2">
+              {showCustom ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onChange(toTitleCase(typed));
+                    setOpen(false);
+                    setQuery("");
+                  }}
+                  className="flex min-h-11 w-full items-center gap-2 rounded-md bg-xmas-gold/15 px-3 text-left text-base font-semibold text-xmas-forest hover:bg-xmas-gold/25"
+                >
+                  <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="truncate">Gamitin ang “{toTitleCase(typed)}”</span>
+                </button>
+              ) : (
+                <p className="px-2 py-1 text-xs font-medium text-destructive">{customError}</p>
+              )}
+            </div>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

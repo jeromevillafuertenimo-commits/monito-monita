@@ -13,7 +13,7 @@ import {
   normalizePin,
 } from "@/lib/auth";
 import { normalizeWhitespace, validateName } from "@/lib/validation";
-import { isValidColor, isValidSex, isValidWordForSex } from "@/lib/words";
+import { customWordError, isValidSex, resolveColor, resolveWord } from "@/lib/words";
 
 const DUPLICATE_CODE_MESSAGE =
   "May gumagamit na ng code na ito. Please choose another color and flower/animal combination.";
@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     const firstName = typeof body.firstName === "string" ? body.firstName : "";
     const lastName = typeof body.lastName === "string" ? body.lastName : "";
     const sex = typeof body.sex === "string" ? body.sex : "";
-    const color = typeof body.color === "string" ? body.color.trim() : "";
-    const word = typeof body.word === "string" ? body.word.trim() : "";
+    let color = typeof body.color === "string" ? body.color.trim() : "";
+    let word = typeof body.word === "string" ? body.word.trim() : "";
     const pin = normalizePin(typeof body.pin === "string" ? body.pin : "");
 
     // Return the FIRST validation error found.
@@ -62,15 +62,20 @@ export async function POST(request: Request) {
     if (!isValidSex(sex)) {
       return jsonError("Piliin ang iyong sex: Female o Male.", 400);
     }
-    if (!isValidColor(color)) {
-      return jsonError("Pumili ng color mula sa listahan ng mga available colors.", 400);
+    const colorResolved = resolveColor(color);
+    if (!colorResolved) {
+      return jsonError(customWordError(color, "color") ?? "Pumili o mag-type ng color.", 400);
     }
-    if (!isValidWordForSex(word, sex)) {
+    color = colorResolved;
+    const wordResolved = resolveWord(word, sex);
+    if (!wordResolved) {
       return jsonError(
-        "Ang word na napili mo ay hindi valid para sa iyong sex. Para sa Female, flowers lang po ang puwede (Rose, Tulip, atbp.). Para sa Male, animals lang po ang puwede (Eagle, Tiger, atbp.).",
+        customWordError(word, sex === "female" ? "flower" : "animal") ??
+          `Pumili o mag-type ng ${sex === "female" ? "flower" : "animal"}.`,
         400
       );
     }
+    word = wordResolved;
 
     const normalizedFirst = normalizeWhitespace(firstName);
     const normalizedLast = normalizeWhitespace(lastName);

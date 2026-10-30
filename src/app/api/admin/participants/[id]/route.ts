@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { getSettingsOrSeed, jsonError, jsonOk, requireAdmin } from "@/lib/api-utils";
 import { audit, hashPin, isValidPin, normalizePin } from "@/lib/auth";
 import { normalizeWhitespace, validateName } from "@/lib/validation";
-import { isValidColor, isValidSex, isValidWordForSex } from "@/lib/words";
+import { customWordError, isValidSex, resolveColor, resolveWord } from "@/lib/words";
 
 const DUPLICATE_NAME_MESSAGE =
   "May registration nang nakarehistro sa pangalang ito. Kung siya nga ito, mag-sign in na lang siya gamit ang First name, Last name, at PIN niya.";
@@ -62,8 +62,8 @@ export async function PATCH(
     const firstName = typeof body.firstName === "string" ? body.firstName : "";
     const lastName = typeof body.lastName === "string" ? body.lastName : "";
     const sex = typeof body.sex === "string" ? body.sex : "";
-    const color = typeof body.color === "string" ? body.color.trim() : "";
-    const word = typeof body.word === "string" ? body.word.trim() : "";
+    let color = typeof body.color === "string" ? body.color.trim() : "";
+    let word = typeof body.word === "string" ? body.word.trim() : "";
     const pin = normalizePin(typeof body.pin === "string" ? body.pin : "");
 
     // Same validation rules as manual add — first error wins.
@@ -78,15 +78,20 @@ export async function PATCH(
     if (!isValidSex(sex)) {
       return jsonError("Piliin ang sex: Babae (Female) o Lalaki (Male).", 400);
     }
-    if (!isValidColor(color)) {
-      return jsonError("Pumili ng color mula sa listahan ng mga available colors.", 400);
+    const colorResolved = resolveColor(color);
+    if (!colorResolved) {
+      return jsonError(customWordError(color, "color") ?? "Pumili o mag-type ng color.", 400);
     }
-    if (!isValidWordForSex(word, sex)) {
+    color = colorResolved;
+    const wordResolved = resolveWord(word, sex);
+    if (!wordResolved) {
       return jsonError(
-        "Ang word na napili ay hindi valid para sa sex na ito. Para sa Babae, flowers lang (Rose, Tulip, atbp.). Para sa Lalaki, animals lang (Eagle, Tiger, atbp.).",
+        customWordError(word, sex === "female" ? "flower" : "animal") ??
+          `Pumili o mag-type ng ${sex === "female" ? "flower" : "animal"}.`,
         400
       );
     }
+    word = wordResolved;
 
     const normalizedFirst = normalizeWhitespace(firstName);
     const normalizedLast = normalizeWhitespace(lastName);
