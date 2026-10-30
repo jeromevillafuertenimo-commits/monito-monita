@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { lsGet, lsSet } from "@/lib/local-store";
+import { lsGet, lsSet } from "@/lib/device-store";
 
 type Lang = "tl" | "en";
 

@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, Check, Dices, KeyRound, Loader2, Lock, ShieldChe
 import { AppCtx } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";
 import { ANIMALS, COLORS, FLOWERS } from "@/lib/words";
-import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/device-store";
 import { PinInput } from "@/components/pin-input";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

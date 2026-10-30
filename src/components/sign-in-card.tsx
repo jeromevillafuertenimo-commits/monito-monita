@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PinInput } from "@/components/pin-input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/device-store";
 import { SectionTitle, ChristmasCard } from "@/components/decor";
 
 export interface SignInResult {

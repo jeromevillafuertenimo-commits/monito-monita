@@ -2,7 +2,7 @@
 
 // Participant wishlist: create/update up to 3 gift wishes, review, then submit.
 import { useEffect, useMemo, useRef, useState } from "react";
-import { lsGetJson, lsRemove, lsSetJson } from "@/lib/local-store";
+import { lsGetJson, lsRemove, lsSetJson } from "@/lib/device-store";
 import { ArrowLeft, Bell, Eye, Gift, Loader2, Lock, Star } from "lucide-react";
 import { AppCtx, WishlistDTO } from "@/lib/app-context";
 import { apiJson } from "@/lib/api-utils-client";

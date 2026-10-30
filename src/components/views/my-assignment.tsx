@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ChristmasCard, BudgetBadge } from "@/components/decor";
 import { Confetti } from "@/components/confetti";
 import { Checkbox } from "@/components/ui/checkbox";
-import { lsGetJson, lsSetJson } from "@/lib/local-store";
+import { lsGetJson, lsSetJson } from "@/lib/device-store";
 import { FELLOWSHIP_DATE } from "@/lib/event-config";
 
 export default function MyAssignmentView({ ctx }: { ctx: AppCtx }) {

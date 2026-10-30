@@ -2,7 +2,7 @@
 
 // Display preferences saved on this device: snow on/off and text size.
 import { useCallback, useEffect, useState } from "react";
-import { lsGet, lsSet } from "@/lib/local-store";
+import { lsGet, lsSet } from "@/lib/device-store";
 
 export const TEXT_SCALES = [100, 112, 125] as const;
 export type TextScale = (typeof TEXT_SCALES)[number];
