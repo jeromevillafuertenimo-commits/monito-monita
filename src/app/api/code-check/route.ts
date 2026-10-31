@@ -11,7 +11,7 @@ import { isValidSex, resolveColor, resolveWord } from "@/lib/words";
 export async function GET(request: Request) {
   try {
     const rl = rateLimit(`codecheck:${clientIp(request)}`, 60, 60_000);
-    if (!rl.allowed) return jsonError("Sobrang dami ng check. Maghintay sandali.", 429);
+    if (!rl.ok) return jsonError("Sobrang dami ng check. Maghintay sandali.", 429);
     const url = new URL(request.url);
     const sex = url.searchParams.get("sex") ?? "";
     const color = resolveColor(url.searchParams.get("color") ?? "");

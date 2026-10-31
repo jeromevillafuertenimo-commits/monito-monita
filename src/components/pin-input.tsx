@@ -31,7 +31,7 @@ export function PinInput({
 }: PinInputProps) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className={cn("flex items-center gap-2", className)}>
+    <div className={cn("flex w-full min-w-0 items-center gap-2", className)}>
       <PinMaskContext.Provider value={!visible}>
         <InputOTP
           id={id}
@@ -44,10 +44,15 @@ export function PinInput({
           aria-label={ariaLabel}
           aria-invalid={invalid || undefined}
           disabled={disabled}
+          containerClassName="min-w-0 flex-1"
         >
-          <InputOTPGroup>
+          <InputOTPGroup className="w-full max-w-[18rem]">
             {Array.from({ length: 6 }, (_, i) => (
-              <InputOTPSlot key={i} index={i} className={cn("h-12 w-11 border-xmas-forest/30 text-lg", slotClassName)} />
+              <InputOTPSlot
+                key={i}
+                index={i}
+                className={cn("h-12 w-auto min-w-0 flex-1 border-xmas-forest/30 text-lg", slotClassName)}
+              />
             ))}
           </InputOTPGroup>
         </InputOTP>

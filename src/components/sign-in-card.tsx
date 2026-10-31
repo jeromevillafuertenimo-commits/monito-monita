@@ -180,7 +180,7 @@ export default function SignInCard({
               ariaLabel="6-digit PIN"
               invalid={!!error}
               disabled={submitting}
-              slotClassName="h-13 w-11 border-xmas-forest/40 text-xl sm:h-14 sm:w-12 sm:text-2xl"
+              slotClassName="h-13 border-xmas-forest/40 text-xl sm:h-14 sm:text-2xl"
             />
           </div>
         </div>

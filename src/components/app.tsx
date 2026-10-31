@@ -5,7 +5,7 @@
 // session token for convenience during a browsing session.
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Gift, Info, LockKeyhole, Home, Loader2, Snowflake, Type } from "lucide-react";
+import { Gift, Info, LockKeyhole, Home, Loader2, Snowflake, Type, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AppCtx,
@@ -17,6 +17,7 @@ import {
 import { apiJson } from "@/lib/api-utils-client";
 import { LightGarland, Snowfall, VerseFooter } from "@/components/decor";
 import { useDisplayPrefs } from "@/lib/use-display-prefs";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 import WelcomeView from "@/components/views/welcome";
 import RegisterView from "@/components/views/register";
@@ -42,6 +43,7 @@ const VIEW_TRANSITION = {
 
 export default function App() {
   const prefs = useDisplayPrefs();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [view, setView] = useState<View>("welcome");
   const [event, setEvent] = useState<EventStatus | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -193,72 +195,89 @@ export default function App() {
           <button
             type="button"
             onClick={() => navigate("welcome")}
-            className="flex items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-xmas-gold"
+            className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1 transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-xmas-gold"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-xmas-forest text-xmas-goldlight shadow">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-xmas-forest text-xmas-goldlight shadow">
               <Gift className="h-5 w-5" aria-hidden />
             </span>
-            <span className="text-left leading-tight">
-              <span className="block font-heading text-base font-bold text-xmas-forest">
+            <span className="min-w-0 text-left leading-tight">
+              <span className="block truncate font-heading text-base font-bold text-xmas-forest">
                 Monito–Monita
               </span>
-              <span className="block text-[11px] font-medium text-muted-foreground">
+              <span className="block truncate text-[11px] font-medium text-muted-foreground">
                 {event?.eventName ?? "Christmas Exchange Gift"}
               </span>
             </span>
           </button>
-          <nav aria-label="Main navigation" className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("welcome")}
-              aria-label="Home"
-              className="gap-1.5 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
-            >
-              <Home className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Home</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("status")}
-              aria-label="Status"
-              className="gap-1.5 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
-            >
-              <Info className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Status</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={prefs.toggleSnow}
-              aria-label={prefs.snow ? "Patayin ang snow" : "Buksan ang snow"}
-              aria-pressed={prefs.snow}
-              className="gap-1.5 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
-            >
-              <Snowflake className={`h-4 w-4 ${prefs.snow ? "" : "opacity-40"}`} aria-hidden />
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={prefs.cycleTextScale}
-              aria-label={`Laki ng letra: ${prefs.textScale}%. Pindutin para palitan.`}
-              className="gap-0.5 px-2 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
-            >
-              <Type className="h-4 w-4" aria-hidden />
-              <span className="text-[10px] font-bold">{prefs.textScale === 100 ? "A" : prefs.textScale === 112 ? "A+" : "A++"}</span>
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("admin-login")}
-              aria-label="Admin login"
-              className="gap-1.5 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
-            >
-              <LockKeyhole className="h-4 w-4" aria-hidden />
-              <span className="hidden sm:inline">Admin</span>
-            </Button>
-          </nav>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Buksan ang menu"
+                className="h-11 w-11 shrink-0 text-xmas-forest hover:bg-accent hover:text-xmas-forest"
+              >
+                <Menu className="h-6 w-6" aria-hidden />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-72 max-w-[85vw] overflow-y-auto bg-xmas-cream">
+              <SheetHeader>
+                <SheetTitle className="font-heading text-xl text-xmas-forest">Menu</SheetTitle>
+                <SheetDescription className="sr-only">Navigation at display settings</SheetDescription>
+              </SheetHeader>
+              <nav aria-label="Main navigation" className="flex flex-col gap-1 px-4">
+                {[
+                  { label: "Home", icon: <Home className="h-5 w-5" aria-hidden />, to: "welcome" as const },
+                  { label: "Status", icon: <Info className="h-5 w-5" aria-hidden />, to: "status" as const },
+                  { label: "Admin login", icon: <LockKeyhole className="h-5 w-5" aria-hidden />, to: "admin-login" as const },
+                ].map((item) => (
+                  <Button
+                    key={item.to}
+                    variant="ghost"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate(item.to);
+                    }}
+                    className="min-h-12 justify-start gap-3 text-base text-xmas-forest hover:bg-accent hover:text-xmas-forest"
+                  >
+                    {item.icon} {item.label}
+                  </Button>
+                ))}
+              </nav>
+              <div className="mx-4 mt-4 space-y-4 border-t border-border/70 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Settings</p>
+                <Button
+                  variant="outline"
+                  onClick={prefs.toggleSnow}
+                  aria-pressed={prefs.snow}
+                  className="min-h-12 w-full justify-between border-xmas-forest/30 text-base text-xmas-forest hover:bg-accent"
+                >
+                  <span className="flex items-center gap-3">
+                    <Snowflake className="h-5 w-5" aria-hidden /> Snow
+                  </span>
+                  <span className="text-sm font-bold">{prefs.snow ? "ON" : "OFF"}</span>
+                </Button>
+                <div>
+                  <p className="mb-2 flex items-center gap-2 text-sm font-medium text-xmas-forest">
+                    <Type className="h-5 w-5" aria-hidden /> Laki ng letra
+                  </p>
+                  <div className="grid grid-cols-3 gap-2" role="group" aria-label="Laki ng letra">
+                    {([100, 112, 125] as const).map((t, i) => (
+                      <Button
+                        key={t}
+                        variant={prefs.textScale === t ? "default" : "outline"}
+                        onClick={() => prefs.setTextScale(t)}
+                        aria-pressed={prefs.textScale === t}
+                        className="min-h-12 text-base"
+                      >
+                        {["A", "A+", "A++"][i]}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 

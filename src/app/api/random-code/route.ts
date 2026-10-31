@@ -12,7 +12,7 @@ import { ANIMALS, COLORS, FLOWERS, isValidSex } from "@/lib/words";
 export async function GET(request: Request) {
   try {
     const rl = rateLimit(`randomcode:${clientIp(request)}`, 40, 60_000);
-    if (!rl.allowed) return jsonError("Sobrang dami ng try. Maghintay sandali.", 429);
+    if (!rl.ok) return jsonError("Sobrang dami ng try. Maghintay sandali.", 429);
     const sex = new URL(request.url).searchParams.get("sex") ?? "";
     if (!isValidSex(sex)) return jsonError("Piliin muna ang sex.", 400);
     const words = sex === "female" ? FLOWERS : ANIMALS;

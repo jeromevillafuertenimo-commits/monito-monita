@@ -36,5 +36,10 @@ export function useDisplayPrefs() {
     });
   }, []);
 
-  return { snow, toggleSnow, textScale, cycleTextScale };
+  const setTextScale = useCallback((t: TextScale) => {
+    lsSet("mm-text-scale", String(t));
+    setTextScaleState(t);
+  }, []);
+
+  return { snow, toggleSnow, textScale, cycleTextScale, setTextScale };
 }
